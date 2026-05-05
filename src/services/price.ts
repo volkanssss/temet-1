@@ -69,13 +69,39 @@ export async function fetchStockInfo(
   ticker: string,
   exchange: string = 'BIST'
 ): Promise<{ name: string; sector: string; success: boolean }> {
+  // 1. Python sunucusu varsa onu kullan
   try {
     const res = await fetch(`${API_BASE}/info/${ticker}?exchange=${exchange}`, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) return data;
+    }
   } catch {
-    // Sunucu yok
+    // Sunucu yok, Yahoo'ya geç
   }
+
+  // 2. Fallback: Yahoo Finance Search API (CORS proxy üzerinden)
+  try {
+    const symbol = exchange === 'BIST' ? `${ticker}.IS` : ticker;
+    const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${symbol}&lang=tr&region=TR&quotesCount=1`;
+    const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
+    const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = await res.json();
+      const quote = data?.quotes?.[0];
+      if (quote) {
+        return {
+          name: quote.longname || quote.shortname || ticker.toUpperCase(),
+          sector: quote.industry || quote.typeDisp || 'Diğer',
+          success: true,
+        };
+      }
+    }
+  } catch {
+    // Her iki kaynak da başarısız
+  }
+
   return { name: '', sector: 'Diğer', success: false };
 }
