@@ -89,12 +89,13 @@ const API_BASE = import.meta.env.VITE_PRICE_API_URL || '/api';
 async function fetchFromYahoo(ticker: string, exchange: string): Promise<number | null> {
   const symbol = exchange === 'BIST' ? `${ticker}.IS` : ticker;
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
   try {
     const res = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) return null;
     const data = await res.json();
-    return data?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
+    const yahooData = JSON.parse(data.contents);
+    return yahooData?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
   } catch {
     return null;
   }

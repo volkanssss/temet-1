@@ -161,6 +161,26 @@ export default function Dashboard() {
     }
   };
 
+  // Otomatik 15 dakikada bir güncelle (Borsa saatleri: Hafta içi 09:55 - 18:15 arası TR saati)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const day = now.getDay(); // 0: Pazar, 6: Cumartesi
+      const hour = now.getHours();
+      const min = now.getMinutes();
+      
+      // Hafta içi ve (saat 10-18 arası veya 09:55 sonrası)
+      const isWeekday = day >= 1 && day <= 5;
+      const isMarketOpen = isWeekday && ((hour > 9 || (hour === 9 && min >= 55)) && (hour < 18 || (hour === 18 && min <= 15)));
+      
+      if (isMarketOpen && stocks.length > 0) {
+        refreshPrices();
+      }
+    }, 15 * 60 * 1000); // 15 dakika
+    
+    return () => clearInterval(interval);
+  }, [stocks.length]);
+
   return (
     <div className="min-h-screen bg-[#E4E3E0] text-[#141414] font-sans selection:bg-[#141414] selection:text-[#E4E3E0]">
       {/* Sidebar navigation */}
