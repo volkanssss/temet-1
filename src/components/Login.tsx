@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { loginWithGoogle } from '../lib/supabase';
 import { motion } from 'motion/react';
+import { RefreshCcw } from 'lucide-react';
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -18,39 +19,51 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#E4E3E0] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full text-center"
+        className="max-w-md w-full text-center relative z-10"
       >
         <div className="mb-8 flex justify-center">
-          <div className="w-16 h-16 bg-[#141414] text-[#E4E3E0] flex items-center justify-center font-serif italic text-3xl">P.</div>
+          <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 p-0.5 bg-slate-900">
+            <img src="/icon.png" alt="Logo" className="w-full h-full object-cover rounded-[14px]" />
+          </div>
         </div>
 
-        <h1 className="text-4xl font-bold tracking-tighter uppercase mb-2">Live Portfolio</h1>
-        <p className="font-serif italic text-sm opacity-50 mb-8 tracking-widest uppercase">Professional Asset Management</p>
+        <h1 className="text-4xl font-bold tracking-tight text-white mb-2">Temettü Takip</h1>
+        <p className="text-slate-500 text-xs font-semibold tracking-[0.2em] uppercase mb-10">Premium Portföy Analizi</p>
 
-        <div className="border border-[#141414] p-8 mb-4">
-          <p className="font-sans text-xs uppercase tracking-widest mb-8 opacity-60">
-            Türk ve global hisselerinizi, temettülerinizi ve finansal hedeflerinizi güvenle takip edin.
+        <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl backdrop-blur-xl shadow-2xl">
+          <p className="text-slate-400 text-sm mb-10 leading-relaxed">
+            Hisselerinizi, temettülerinizi ve finansal hedeflerinizi şık ve modern bir arayüzle takip edin.
           </p>
 
           {error && (
-            <div className="mb-4 p-3 border border-red-400 text-red-700 text-xs font-mono">{error}</div>
+            <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl">{error}</div>
           )}
 
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full py-4 bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full py-4 bg-white text-slate-950 font-bold text-sm rounded-2xl hover:bg-slate-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg shadow-white/5"
           >
-            {loading ? 'Yönlendiriliyor...' : 'Google ile Giriş Yap'}
+            {loading ? (
+              <RefreshCcw size={18} className="animate-spin" />
+            ) : (
+              <>
+                <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
+                Google ile Giriş Yap
+              </>
+            )}
           </button>
         </div>
 
-        <div className="text-[10px] font-mono opacity-30 uppercase tracking-tighter">
-          &copy; 2026 Professional Ledger System
+        <div className="mt-10 text-[10px] text-slate-600 font-bold uppercase tracking-widest">
+          &copy; 2026 Temettü Takip Sistemi
         </div>
       </motion.div>
     </div>

@@ -1,0 +1,16 @@
+{
+  "short_name": "TemettüTakip",
+  "name": "Temettü Takip - Premium Portföy",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#020617",
+  "background_color": "#020617"
+}

@@ -224,17 +224,22 @@ export default function Dashboard() {
         {/* Header & Pill Navigation */}
         <header className="px-6 pt-12 pb-6 flex flex-col gap-6 sticky top-0 z-20 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800">
           <div className="flex justify-between items-center">
-            <div>
-              <div className="text-slate-400 text-sm flex items-center gap-2 mb-1">
-                Portfolio Ledger &bull; {userName}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg border border-slate-800">
+                <img src="/icon.png" alt="Logo" className="w-full h-full object-cover" />
               </div>
-              <h1 className="text-2xl font-semibold">
-                {activeTab === 'dash' && 'Genel Bakış'}
-                {activeTab === 'pf' && 'Hisseler'}
-                {activeTab === 'div' && 'Temettüler'}
-                {activeTab === 'an' && 'İşlemler'}
-                {activeTab === 'goal' && 'Hedefler'}
-              </h1>
+              <div>
+                <div className="text-slate-400 text-[10px] uppercase font-bold tracking-widest leading-none mb-1">
+                  Temettü Takip &bull; {userName}
+                </div>
+                <h1 className="text-xl font-bold text-white leading-none">
+                  {activeTab === 'dash' && 'Genel Bakış'}
+                  {activeTab === 'pf' && 'Hisseler'}
+                  {activeTab === 'div' && 'Temettüler'}
+                  {activeTab === 'an' && 'İşlemler'}
+                  {activeTab === 'goal' && 'Hedefler'}
+                </h1>
+              </div>
             </div>
             
             <div className="flex items-center gap-3">
