@@ -1011,16 +1011,6 @@ export default function Dashboard() {
                   >
                     ALIM EKLE
                   </button>
-                  <button 
-                    onClick={() => {
-                      if (window.confirm(`${s.ticker} portföyünüzden silinecektir. Emin misiniz?`)) {
-                        dbService.remove('stocks', s.id).then(() => setViewingStockDetails(null));
-                      }
-                    }}
-                    className="p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
                 </div>
               </div>
             </Modal>
