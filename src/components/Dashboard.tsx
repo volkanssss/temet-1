@@ -256,26 +256,53 @@ export default function Dashboard() {
                   </button>
                 </div>
 
-                {/* Aylık Alım Özeti */}
+                {/* Aylık Yatırım Geçmişi */}
                 {(() => {
-                  const thisMonth = new Date().toISOString().slice(0, 7);
-                  const monthPurchases = purchases.filter(p => p.date.startsWith(thisMonth));
-                  const totalInvestedThisMonth = monthPurchases.reduce((acc, p) => acc + (p.qty * p.price), 0);
-                  const dripInvestedThisMonth = monthPurchases.filter(p => (p as any).isDrip).reduce((acc, p) => acc + (p.qty * p.price), 0);
-                  const netInvestedThisMonth = totalInvestedThisMonth - dripInvestedThisMonth;
+                  if (purchases.length === 0) return null;
 
-                  if (totalInvestedThisMonth === 0) return null;
+                  // Alımları aylara göre grupla (YYYY-MM)
+                  const grouped = purchases.reduce((acc, p) => {
+                    const month = p.date.substring(0, 7);
+                    if (!acc[month]) acc[month] = { total: 0, drip: 0 };
+                    const value = p.qty * p.price;
+                    acc[month].total += value;
+                    if ((p as any).isDrip) {
+                      acc[month].drip += value;
+                    }
+                    return acc;
+                  }, {} as Record<string, { total: number, drip: number }>);
+
+                  const sortedMonths = Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0])) as [string, { total: number, drip: number }][];
 
                   return (
-                    <div className="border border-[#141414] p-6 flex justify-between items-center mb-4 bg-white/50">
-                      <div>
-                        <div className="font-serif italic text-[10px] uppercase tracking-widest opacity-60 mb-1">Bu Ayki Toplam Yatırım ({new Date().toLocaleString('tr-TR', { month: 'long' })})</div>
-                        <div className="font-mono text-2xl font-black">{formatCurrency(totalInvestedThisMonth)}</div>
-                        {dripInvestedThisMonth > 0 && (
-                          <div className="text-[10px] font-mono mt-1 text-green-700 opacity-80">
-                            (Bunun {formatCurrency(dripInvestedThisMonth)}'si DRIP / Temettü geri alımıdır. Net yatırılan: {formatCurrency(netInvestedThisMonth)})
-                          </div>
-                        )}
+                    <div className="mb-8">
+                      <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Aylık Yatırım Geçmişi</h3>
+                      <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
+                        {sortedMonths.map(([month, data]) => {
+                          const net = data.total - data.drip;
+                          const monthDate = new Date(month + '-01');
+                          const monthName = monthDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+                          const isCurrentMonth = month === new Date().toISOString().substring(0, 7);
+
+                          return (
+                            <div key={month} className={`min-w-[280px] snap-start border border-[#141414] p-5 ${isCurrentMonth ? 'bg-[#141414] text-[#E4E3E0]' : 'bg-white/50'}`}>
+                              <div className={`font-serif italic text-xs uppercase tracking-widest opacity-60 mb-2 ${isCurrentMonth ? 'text-[#E4E3E0]' : ''}`}>
+                                {monthName} {isCurrentMonth && '(Mevcut)'}
+                              </div>
+                              <div className="font-mono text-2xl font-black mb-2">{formatCurrency(data.total)}</div>
+                              <div className={`text-[10px] font-mono grid grid-cols-2 gap-2 opacity-80 ${isCurrentMonth ? 'text-[#E4E3E0]' : ''}`}>
+                                <div>
+                                  <div className="opacity-50">Net Yatırım</div>
+                                  <div className={isCurrentMonth ? "text-green-400" : "text-green-700"}>{formatCurrency(net)}</div>
+                                </div>
+                                <div>
+                                  <div className="opacity-50">DRIP (Temettü)</div>
+                                  <div>{formatCurrency(data.drip)}</div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
