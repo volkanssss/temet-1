@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Stock": {
+      "title": "Stock Holding",
+      "description": "Represents a specific stock in the user's portfolio",
+      "type": "object",
+      "properties": {
+        "ticker": { "type": "string", "description": "Stock symbol (e.g., TUPRS)" },
+        "name": { "type": "string", "description": "Company name" },
+        "exchange": { "type": "string", "description": "Stock exchange (e.g., BIST)" },
+        "sector": { "type": "string", "description": "Industry sector" },
+        "notes": { "type": "string", "description": "User notes" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "lastPrice": { "type": "number", "description": "Last fetched price" }
+      },
+      "required": ["ticker", "name", "exchange"]
+    },
+    "Purchase": {
+      "title": "Purchase Record",
+      "description": "A specific purchase transaction for a stock",
+      "type": "object",
+      "properties": {
+        "stockId": { "type": "string", "description": "Reference to the stock ID" },
+        "date": { "type": "string", "format": "date" },
+        "qty": { "type": "number", "description": "Quantity purchased" },
+        "price": { "type": "number", "description": "Price per unit at purchase" },
+        "note": { "type": "string", "description": "Transaction note" }
+      },
+      "required": ["stockId", "date", "qty", "price"]
+    },
+    "Dividend": {
+      "title": "Dividend Record",
+      "description": "A dividend payment received",
+      "type": "object",
+      "properties": {
+        "stockId": { "type": "string", "description": "Reference to the stock ID" },
+        "ticker": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "ps": { "type": "number", "description": "Price per share (dividend amount)" },
+        "qty": { "type": "number", "description": "Quantity held at payment time" },
+        "tax": { "type": "number", "description": "Tax withheld" },
+        "gross": { "type": "number", "description": "Gross amount" },
+        "net": { "type": "number", "description": "Net amount received" },
+        "type": { "type": "string", "description": "Dividend type (e.g., Nakit)" },
+        "note": { "type": "string" }
+      },
+      "required": ["stockId", "date", "ps", "qty", "net"]
+    },
+    "Goal": {
+      "title": "Financial Goal",
+      "description": "A portfolio goal (e.g., target dividend income)",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "target": { "type": "number" },
+        "type": { "type": "string", "description": "Goal type (e.g., annual_div)" },
+        "date": { "type": "string", "format": "date", "description": "Target date" }
+      },
+      "required": ["name", "target", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/stocks/{stockId}": {
+      "schema": "Stock",
+      "description": "User's stock holdings"
+    },
+    "/users/{userId}/purchases/{purchaseId}": {
+      "schema": "Purchase",
+      "description": "User's purchase transactions"
+    },
+    "/users/{userId}/dividends/{dividendId}": {
+      "schema": "Dividend",
+      "description": "User's dividend history"
+    },
+    "/users/{userId}/goals/{goalId}": {
+      "schema": "Goal",
+      "description": "User's financial goals"
+    }
+  }
+}

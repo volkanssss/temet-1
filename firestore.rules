@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity Validations
+    function isValidStock(data) {
+      return data.keys().hasAll(['ticker', 'name', 'exchange']) 
+        && data.ticker is string && data.ticker.size() <= 16
+        && data.name is string && data.name.size() <= 100
+        && data.exchange is string && data.exchange.size() <= 20;
+    }
+
+    function isValidPurchase(data, userId) {
+      return data.keys().hasAll(['stockId', 'date', 'qty', 'price'])
+        && isValidId(data.stockId)
+        && exists(/databases/$(database)/documents/users/$(userId)/stocks/$(data.stockId))
+        && data.date is string && data.date.size() == 10
+        && data.qty is number && data.qty > 0
+        && data.price is number && data.price >= 0;
+    }
+
+    function isValidDividend(data, userId) {
+      return data.keys().hasAll(['stockId', 'date', 'ps', 'qty', 'net'])
+        && isValidId(data.stockId)
+        && exists(/databases/$(database)/documents/users/$(userId)/stocks/$(data.stockId))
+        && data.date is string && data.date.size() == 10
+        && data.ps is number && data.ps >= 0
+        && data.qty is number && data.qty > 0
+        && data.net is number && data.net >= 0;
+    }
+
+    function isValidGoal(data) {
+      return data.keys().hasAll(['name', 'target', 'type'])
+        && data.name is string && data.name.size() <= 100
+        && data.target is number && data.target >= 0
+        && data.type is string;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      match /stocks/{stockId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidStock(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /purchases/{purchaseId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidPurchase(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /dividends/{dividendId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidDividend(request.resource.data, userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /goals/{goalId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidGoal(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

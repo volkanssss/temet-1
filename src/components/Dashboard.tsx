@@ -1,0 +1,673 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Plus,
+  RefreshCcw,
+  Trash2,
+  TrendingUp,
+  PieChart,
+  Target,
+  DollarSign,
+  LogOut,
+  CheckCircle,
+  AlertCircle,
+  Briefcase,
+  Edit2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { supabase, logout } from '../lib/supabase';
+import { dbService } from '../services/db';
+import { fetchStockPricesBatch } from '../services/price';
+import { cn, formatCurrency, formatPercentage } from '../lib/utils';
+import { StockHolding, Purchase, Dividend, Goal } from '../types/stock';
+import {
+  BarChart,
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell,
+  PieChart as RePieChart,
+  Pie
+} from 'recharts';
+
+type Tab = 'dash' | 'pf' | 'div' | 'an' | 'goal';
+
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState<Tab>('dash');
+  const [stocks, setStocks] = useState<StockHolding[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [dividends, setDividends] = useState<Dividend[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  
+  const [isAddingStock, setIsAddingStock] = useState(false);
+  const [isAddingPurchase, setIsAddingPurchase] = useState(false);
+  const [isAddingDividend, setIsAddingDividend] = useState(false);
+  const [isAddingGoal, setIsAddingGoal] = useState(false);
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = useCallback((msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
+
+  // Kullanıcı adı
+  const [userName, setUserName] = useState('');
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserName(data.session?.user?.user_metadata?.full_name || data.session?.user?.email || '');
+    });
+  }, []);
+
+  // Realtime Subscriptions
+  useEffect(() => {
+    const unsubStocks = dbService.subscribe('stocks', setStocks);
+    const unsubPurchases = dbService.subscribe('purchases', setPurchases);
+    const unsubDividends = dbService.subscribe('dividends', setDividends);
+    const unsubGoals = dbService.subscribe('goals', setGoals);
+
+    return () => {
+      unsubStocks();
+      unsubPurchases();
+      unsubDividends();
+      unsubGoals();
+    };
+  }, []);
+
+  // Derived Data
+  const stockStats = useMemo(() => {
+    return stocks.map(s => {
+      const stockPurchases = purchases.filter(p => p.stockId === s.id);
+      const qty = stockPurchases.reduce((acc, p) => acc + p.qty, 0);
+      const totalCost = stockPurchases.reduce((acc, p) => acc + p.qty * p.price, 0);
+      const avgCost = qty > 0 ? totalCost / qty : 0;
+      const currentPrice = s.lastPrice || avgCost;
+      const currentValue = qty * currentPrice;
+      const profitLoss = currentValue - totalCost;
+      const profitLossPct = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
+      
+      const stockDividends = dividends.filter(d => d.stockId === s.id);
+      const totalDiv = stockDividends.reduce((acc, d) => acc + d.net, 0);
+
+      return {
+        ...s,
+        qty,
+        avgCost,
+        totalCost,
+        currentPrice,
+        currentValue,
+        profitLoss,
+        profitLossPct,
+        totalDiv
+      };
+    });
+  }, [stocks, purchases, dividends]);
+
+  const summary = useMemo(() => {
+    const totalValue = stockStats.reduce((acc, s) => acc + s.currentValue, 0);
+    const totalCost = stockStats.reduce((acc, s) => acc + s.totalCost, 0);
+    const totalDiv = dividends.reduce((acc, d) => acc + d.net, 0);
+    const pnl = totalValue - totalCost;
+    const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+
+    return {
+      totalValue,
+      totalCost,
+      totalDiv,
+      pnl,
+      pnlPct
+    };
+  }, [stockStats, dividends]);
+
+  const refreshPrices = async () => {
+    if (!stocks.length) return;
+    setLoading(true);
+    try {
+      // Toplu paralel çekme (Bug #1 fix)
+      const priceMap = await fetchStockPricesBatch(
+        stocks.map(s => ({ ticker: s.ticker, exchange: s.exchange }))
+      );
+      await Promise.all(
+        stocks.map(s => {
+          const price = priceMap[s.ticker];
+          if (price != null) return dbService.update('stocks', s.id, { lastPrice: price });
+        })
+      );
+      showToast(`${stocks.length} hisse güncellendi.`);
+    } catch {
+      showToast('Fiyat güncelleme başarısız.', false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#E4E3E0] text-[#141414] font-sans selection:bg-[#141414] selection:text-[#E4E3E0]">
+      {/* Sidebar navigation */}
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      <div className="pl-16">
+        {/* Toast */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={cn(
+                "fixed top-4 right-4 z-[200] flex items-center gap-3 px-5 py-3 border font-mono text-xs uppercase tracking-widest",
+                toast.ok
+                  ? "bg-[#141414] text-[#E4E3E0] border-[#141414]"
+                  : "bg-red-50 text-red-700 border-red-400"
+              )}
+            >
+              {toast.ok ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+              {toast.msg}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Header */}
+        <header className="border-b border-[#141414] p-8 flex justify-between items-end bg-[#E4E3E0]/80 backdrop-blur sticky top-0 z-20">
+          <div>
+            <div className="font-serif italic text-xs opacity-50 uppercase tracking-widest mb-1">
+              Portfolio Ledger &bull; {userName}
+            </div>
+            <h1 className="text-4xl font-bold tracking-tighter uppercase leading-none">
+              {activeTab === 'dash' && 'Özet'}
+              {activeTab === 'pf' && 'Portföy'}
+              {activeTab === 'div' && 'Temettüler'}
+              {activeTab === 'an' && 'Analiz'}
+              {activeTab === 'goal' && 'Hedefler'}
+            </h1>
+          </div>
+          
+          <div className="flex gap-4">
+            <button 
+              onClick={refreshPrices}
+              disabled={loading}
+              className="px-6 py-3 border border-[#141414] flex items-center gap-2 hover:bg-[#141414] hover:text-white transition-all font-mono uppercase text-[10px] tracking-widest"
+            >
+              <RefreshCcw size={12} className={cn(loading && "animate-spin")} /> 
+              {loading ? "GÜNCELLENİYOR..." : "LİVE SYNC"}
+            </button>
+            <button onClick={logout} className="p-3 border border-[#141414] hover:bg-red-500 hover:text-white transition-all">
+              <LogOut size={14} />
+            </button>
+          </div>
+        </header>
+
+        <div className="p-8 max-w-6xl mx-auto">
+          {activeTab === 'dash' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+              {/* Top Stats */}
+              <div className="grid grid-cols-4 border border-[#141414] divide-x divide-[#141414]">
+                <StatItem label="Toplam Değer" value={formatCurrency(summary.totalValue)} />
+                <StatItem label="Toplam Maliyet" value={formatCurrency(summary.totalCost)} />
+                <StatItem 
+                  label="Kar / Zarar" 
+                  value={formatCurrency(summary.pnl)} 
+                  subText={formatPercentage(summary.pnlPct)}
+                  trend={summary.pnl >= 0 ? 'up' : 'down'}
+                />
+                <StatItem label="Toplam Temettü" value={formatCurrency(summary.totalDiv)} highlight />
+              </div>
+
+              {/* Position Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {stockStats.map(stock => (
+                   <div key={stock.id} onClick={() => setActiveTab('pf')} className="border border-[#141414] p-6 hover:bg-[#141414] hover:text-white transition-all group flex justify-between items-center cursor-pointer">
+                      <div>
+                        <div className="font-mono text-xl font-black mb-1">{stock.ticker}</div>
+                        <div className="font-serif italic text-xs opacity-50 group-hover:opacity-100">{stock.name} &bull; {stock.sector}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono text-lg">{formatCurrency(stock.currentValue)}</div>
+                        <div className={cn(
+                          "font-mono text-[10px] uppercase",
+                          stock.profitLoss >= 0 ? "text-green-700 group-hover:text-green-400" : "text-red-700 group-hover:text-red-400"
+                        )}>
+                          {stock.profitLoss >= 0 ? '▲' : '▼'} {formatPercentage(stock.profitLossPct)}
+                        </div>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'pf' && (
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Varlık Listesi</h2>
+                  <button 
+                    onClick={() => setIsAddingStock(true)}
+                    className="px-6 py-2 bg-[#141414] text-white font-mono uppercase text-[10px] tracking-widest hover:opacity-90"
+                  >
+                    Hisse Ekle
+                  </button>
+                </div>
+
+                <div className="border border-[#141414]">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest">
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Hisse</th>
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Sektör</th>
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Adet</th>
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Ort. Maliyet</th>
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Gncel Fiyat</th>
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Gncel Değer</th>
+                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">K/Z</th>
+                        <th className="p-4 text-left font-normal">Aksiyon</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stocks.map(s => {
+                        const stats = stockStats.find(x => x.id === s.id);
+                        return (
+                          <tr key={s.id} className="border-b border-[#141414] hover:bg-[#141414]/5 transition-colors group">
+                            <td className="p-4 border-r border-[#141414]">
+                              <div className="font-mono font-bold">{s.ticker}</div>
+                              <div className="text-[10px] opacity-50 truncate max-w-[150px]">{s.name}</div>
+                            </td>
+                            <td className="p-4 border-r border-[#141414] font-serif italic text-sm">{s.sector}</td>
+                            <td className="p-4 border-r border-[#141414] font-mono">{stats?.qty}</td>
+                            <td className="p-4 border-r border-[#141414] font-mono">{formatCurrency(stats?.avgCost || 0)}</td>
+                            <td className="p-4 border-r border-[#141414] font-mono">
+                              {s.lastPrice ? formatCurrency(s.lastPrice) : <span className="opacity-30 text-[10px]">Güncellenmedi</span>}
+                            </td>
+                            <td className="p-4 border-r border-[#141414] font-mono">{formatCurrency(stats?.currentValue || 0)}</td>
+                            <td className={cn(
+                              "p-4 border-r border-[#141414] font-mono text-xs",
+                              (stats?.profitLoss || 0) >= 0 ? "text-green-700" : "text-red-700"
+                            )}>
+                              {(stats?.profitLoss || 0) >= 0 ? '▲' : '▼'} {formatPercentage(stats?.profitLossPct || 0)}
+                            </td>
+                            <td className="p-4 flex gap-2">
+                              <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="hover:text-green-600" title="Alım Ekle"><Plus size={16}/></button>
+                              <button onClick={() => dbService.remove('stocks', s.id)} className="hover:text-red-600" title="Sil (alımlar ve temettüler de silinir)"><Trash2 size={16}/></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {stocks.length === 0 && <div className="p-12 text-center font-serif italic opacity-40">Kayıtlı hisse bulunamadı.</div>}
+                </div>
+             </motion.div>
+          )}
+
+          {activeTab === 'div' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Geçmiş Ödemeler</h2>
+                <button 
+                  onClick={() => setIsAddingDividend(true)}
+                  className="px-6 py-2 bg-[#141414] text-white font-mono uppercase text-[10px] tracking-widest"
+                >
+                  Temettü Ekle
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4">
+                 {dividends.sort((a,b) => b.date.localeCompare(a.date)).map(d => (
+                   <div key={d.id} className="border border-[#141414] p-6 flex justify-between items-center">
+                     <div className="flex items-center gap-6">
+                        <div className="w-12 h-12 border border-[#141414] flex items-center justify-center font-mono font-black text-xl bg-[#141414] text-white">{d.ticker.slice(0,1)}</div>
+                        <div>
+                          <div className="font-mono text-lg font-bold">{d.ticker}</div>
+                          <div className="font-serif italic text-xs opacity-50">{d.date} &bull; {d.qty} LOT &bull; ₺{d.ps}/HİSSE</div>
+                        </div>
+                     </div>
+                     <div className="text-right">
+                       <div className="font-mono text-2xl font-bold text-green-800">{formatCurrency(d.net)}</div>
+                       <button onClick={() => dbService.remove('dividends', d.id)} className="text-[10px] font-mono opacity-30 hover:opacity-100 uppercase tracking-widest mt-1">SİL</button>
+                     </div>
+                   </div>
+                 ))}
+                 {dividends.length === 0 && <div className="p-12 text-center border border-dashed border-[#141414] opacity-30 font-serif italic">Henüz ödeme kaydı yok.</div>}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'an' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div>
+                    <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Portföy Dağılımı</h3>
+                    <div className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RePieChart>
+                          <Pie
+                            data={stockStats}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={5}
+                            dataKey="currentValue"
+                            nameKey="ticker"
+                          >
+                            {stockStats.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#141414' : '#666'} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </RePieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Sektörel Dağılım</h3>
+                    <div className="space-y-4 pt-4">
+                      {Object.entries(stockStats.reduce((acc, s) => {
+                        acc[s.sector] = (acc[s.sector] || 0) + s.currentValue;
+                        return acc;
+                      }, {} as Record<string, number>)).sort((a: any, b: any) => b[1] - a[1]).map(([sector, value]) => (
+                        <div key={sector}>
+                          <div className="flex justify-between font-mono text-[10px] uppercase mb-1">
+                            <span>{sector}</span>
+                            <span>{formatPercentage(((value as number) / (summary.totalValue as number)) * 100)}</span>
+                          </div>
+                          <div className="h-1 bg-[#141414]/10">
+                            <div className="h-full bg-[#141414]" style={{ width: `${((value as number) / (summary.totalValue as number)) * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+               </div>
+
+               <div>
+                 <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-8 border-b border-[#141414] pb-2">Aylık Temettü Seyri</h3>
+                 <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={Object.entries(dividends.reduce((acc, d) => {
+                        const month = d.date.slice(0,7);
+                        acc[month] = (acc[month] || 0) + d.net;
+                        return acc;
+                      }, {} as Record<string, number>)).sort().map(([name, net]) => ({ name, net }))}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px', fontFamily: 'monospace' }} />
+                        <YAxis axisLine={false} tickLine={false} style={{ fontSize: '10px', fontFamily: 'monospace' }} />
+                        <Tooltip />
+                        <Bar dataKey="net" fill="#141414" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                 </div>
+               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'goal' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Vizyon & Hedefler</h2>
+                <button 
+                  onClick={() => setIsAddingGoal(true)}
+                  className="px-6 py-2 bg-[#141414] text-white font-mono uppercase text-[10px] tracking-widest"
+                >
+                  Hedef Koy
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-8">
+                 {goals.map(g => {
+                   let current = 0;
+                   if (g.type === 'portfolio_val') current = summary.totalValue;
+                   if (g.type === 'total_div') current = summary.totalDiv;
+                   if (g.type === 'stock_count') current = stocks.length;
+                   const thisYear = new Date().getFullYear().toString();
+                   const thisMonth = new Date().toISOString().slice(0, 7);
+                   if (g.type === 'annual_div') current = dividends.filter(d => d.date.startsWith(thisYear)).reduce((a, d) => a + d.net, 0);
+                   // Bug #3 fix: monthly_div hesabı
+                   if (g.type === 'monthly_div') current = dividends.filter(d => d.date.startsWith(thisMonth)).reduce((a, d) => a + d.net, 0);
+                   
+                   const progress = Math.min(100, ((current as number) / (g.target as number)) * 100);
+
+                   return (
+                     <div key={g.id} className="border-l-4 border-[#141414] bg-[#141414]/5 p-8">
+                        <div className="flex justify-between items-start mb-6">
+                          <div>
+                            <div className="font-serif italic text-2xl mb-1">{g.name}</div>
+                            <div className="font-mono text-[10px] uppercase opacity-50">{g.type.replace('_',' ')} &bull; {g.date || 'SÜRESİZ'}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-mono text-3xl font-black">{Math.round(progress)}%</div>
+                            <button onClick={() => dbService.remove('goals', g.id)} className="text-[10px] hover:text-red-600">SİL</button>
+                          </div>
+                        </div>
+
+                        <div className="h-6 border border-[#141414] p-1 mb-2">
+                           <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            className="h-full bg-[#141414]" 
+                           />
+                        </div>
+                        <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest opacity-60">
+                           <span>{formatCurrency(current)}</span>
+                           <span>Hedef: {formatCurrency(g.target)}</span>
+                        </div>
+                     </div>
+                   );
+                 })}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AnimatePresence>
+        {isAddingStock && (
+          <Modal title="Hisse Ekle" onClose={() => setIsAddingStock(false)} onSave={async (data) => {
+             await dbService.add('stocks', {
+               ticker: data.ticker.toUpperCase(),
+               name: data.name,
+               exchange: data.exchange,
+               sector: data.sector,
+               notes: data.notes
+             });
+             setIsAddingStock(false);
+          }}>
+            <div className="space-y-4">
+              <Input label="Hisse Kodu (örn: TUPRS)" name="ticker" required />
+              <Input label="Şirket Adı" name="name" required />
+              <div className="grid grid-cols-2 gap-4">
+                <Select label="Borsa" name="exchange" options={['BIST', 'NYSE', 'NASDAQ', 'LSE']} />
+                <Select label="Sektör" name="sector" options={['Enerji', 'Banka', 'Sanayi', 'Teknoloji', 'Holding', 'Gıda', 'Diğer']} />
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {isAddingPurchase && (
+          <Modal title="Alım Ekle" onClose={() => setIsAddingPurchase(false)} onSave={async (data) => {
+             await dbService.add('purchases', {
+               stockId: selectedStockId,
+               qty: Number(data.qty),
+               price: Number(data.price),
+               date: data.date,
+               note: data.note
+             });
+             setIsAddingPurchase(false);
+          }}>
+            <div className="space-y-4">
+               <Input label="Tarih" name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required />
+               <div className="grid grid-cols-2 gap-4">
+                 <Input label="Adet / Lot" name="qty" type="number" required />
+                 <Input label="Birim Fiyat (₺)" name="price" type="number" step="0.01" required />
+               </div>
+               <Input label="Not" name="note" />
+            </div>
+          </Modal>
+        )}
+
+        {isAddingDividend && (
+          <Modal title="Temettü Kaydı" onClose={() => setIsAddingDividend(false)} onSave={async (data) => {
+             const stock = stocks.find(s => s.id === data.stockId);
+             await dbService.add('dividends', {
+               stockId: data.stockId,
+               ticker: stock?.ticker,
+               date: data.date,
+               ps: Number(data.ps),
+               qty: Number(data.qty),
+               net: Number(data.net),
+               type: data.type,
+               tax: Number(data.tax || 0),
+               gross: Number(data.net) + Number(data.tax || 0),
+               note: data.note
+             });
+             setIsAddingDividend(false);
+          }}>
+             <div className="space-y-4">
+                <Select label="Hisse" name="stockId" options={stocks.map(s => ({ label: s.ticker, value: s.id }))} />
+                <Input label="Tarih" name="date" type="date" required />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Hisse Başı (Net)" name="ps" type="number" step="0.0001" required />
+                  <Input label="Lot Sayısı" name="qty" type="number" required />
+                </div>
+                <Input label="Net Toplam (₺)" name="net" type="number" step="0.01" required />
+                <Select label="Tür" name="type" options={['Nakit', 'Hisse', 'Ara Ödeme']} />
+             </div>
+          </Modal>
+        )}
+
+        {isAddingGoal && (
+          <Modal title="Varlık Hedefi" onClose={() => setIsAddingGoal(false)} onSave={async (data) => {
+            await dbService.add('goals', {
+              name: data.name,
+              target: Number(data.target),
+              type: data.type,
+              date: data.date
+            });
+            setIsAddingGoal(false);
+          }}>
+            <div className="space-y-4">
+              <Input label="Hedef Adı" name="name" required />
+              <Select label="Tür" name="type" options={[
+                { label: 'Yıllık Temettü', value: 'annual_div' },
+                { label: 'Aylık Temettü', value: 'monthly_div' },
+                { label: 'Portföy Değeri', value: 'portfolio_val' },
+                { label: 'Toplam Temettü', value: 'total_div' },
+                { label: 'Hisse Sayısı', value: 'stock_count' }
+              ]} />
+              <Input label="Hedef Rakam" name="target" type="number" required />
+              <Input label="Hedef Tarihi" name="date" type="date" />
+            </div>
+          </Modal>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Sidebar({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t: Tab) => void }) {
+  const items = [
+    { id: 'dash' as const, ico: <PieChart size={20}/>, lbl: 'Özet' },
+    { id: 'pf' as const, ico: <Briefcase size={20}/>, lbl: 'Varlıklar' },
+    { id: 'div' as const, ico: <DollarSign size={20}/>, lbl: 'Gelirler' },
+    { id: 'an' as const, ico: <TrendingUp size={20}/>, lbl: 'Analiz' },
+    { id: 'goal' as const, ico: <Target size={20}/>, lbl: 'Vizyon' },
+  ];
+
+  return (
+    <div className="fixed left-0 top-0 h-full w-16 border-r border-[#141414] flex flex-col items-center py-10 gap-10 bg-[#E4E3E0] z-30 overflow-hidden">
+      <div className="w-8 h-8 bg-[#141414] text-[#E4E3E0] flex items-center justify-center font-serif italic font-black">P</div>
+      <div className="flex flex-col gap-8 flex-1">
+        {items.map(item => (
+          <button 
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={cn(
+              "p-3 transition-all relative group",
+              activeTab === item.id ? "opacity-100" : "opacity-30 hover:opacity-100"
+            )}
+          >
+            {item.ico}
+            <div className="absolute left-16 bg-[#141414] text-[#E4E3E0] text-[10px] px-2 py-1 uppercase tracking-widest hidden group-hover:block whitespace-nowrap z-50">
+              {item.lbl}
+            </div>
+            {activeTab === item.id && <motion.div layoutId="nav-bg" className="absolute left-0 top-0 w-1 h-full bg-[#141414]" />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatItem({ label, value, subText, trend, highlight }: { label: string, value: string, subText?: string, trend?: 'up' | 'down', highlight?: boolean }) {
+  return (
+    <div className={cn("p-8", highlight && "bg-[#141414] text-[#E4E3E0]")}>
+      <div className={cn("font-serif italic text-[10px] uppercase tracking-widest mb-1 opacity-50", highlight && "opacity-100")}>{label}</div>
+      <div className="flex items-baseline gap-2">
+        <div className="text-2xl font-mono font-black tracking-tighter">{value}</div>
+        {trend && (
+           <div className={cn(
+             "text-[10px] font-mono",
+             trend === 'up' ? "text-green-700" : "text-red-700"
+           )}>
+             {trend === 'up' ? '▲' : '▼'} {subText}
+           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose, onSave }: { title: string, children: React.ReactNode, onClose: () => void, onSave: (data: any) => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-[#141414]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div 
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 20, opacity: 0 }}
+        className="bg-[#E4E3E0] border border-[#141414] w-full max-w-lg p-10"
+      >
+        <h2 className="text-3xl font-bold uppercase tracking-tighter mb-8 border-b border-[#141414] pb-4">{title}</h2>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          onSave(Object.fromEntries(fd.entries()));
+        }}>
+          {children}
+          <div className="flex gap-4 mt-12 pt-8 border-t border-[#141414]/10">
+            <button type="button" onClick={onClose} className="flex-1 py-4 border border-[#141414] font-mono text-[10px] uppercase tracking-widest">İptal</button>
+            <button type="submit" className="flex-1 py-4 bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest">Kaydet</button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+function Input({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="font-serif italic text-[10px] uppercase opacity-50">{label}</label>
+      <input {...props} className="bg-transparent border-b border-[#141414] py-2 outline-none font-sans text-sm focus:border-b-2" />
+    </div>
+  );
+}
+
+function Select({ label, options, ...props }: { label: string, options: (string | { label: string, value: string })[] } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="font-serif italic text-[10px] uppercase opacity-50">{label}</label>
+      <select {...props} className="bg-transparent border-b border-[#141414] py-3 outline-none font-sans text-sm appearance-none">
+        {options.map(opt => typeof opt === 'string' ? <option key={opt} value={opt}>{opt}</option> : <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+      </select>
+    </div>
+  );
+}
