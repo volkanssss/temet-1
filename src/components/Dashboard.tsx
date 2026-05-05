@@ -223,7 +223,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-center">
             <div>
               <div className="text-slate-400 text-sm flex items-center gap-2 mb-1">
-                Örnek Portföy <ChevronDown size={14} />
+                Portfolio Ledger &bull; {userName}
               </div>
               <h1 className="text-2xl font-semibold">
                 {activeTab === 'dash' && 'Genel Bakış'}
@@ -317,9 +317,7 @@ export default function Dashboard() {
                 return (
                   <>
                     <div className="flex flex-col items-center mb-8 pt-4">
-                      <div className="flex items-center gap-2 text-slate-400 text-xs mb-4 bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50">
-                        <span>Örnek veri</span> <span className="opacity-50">Aşağıdaki portföy verileri örnek amaçlıdır.</span>
-                      </div>
+
                       <div className="w-full flex justify-end pr-4 mb-2">
                         <div className="flex items-center gap-1.5 text-slate-400 text-sm font-medium"><Eye size={16} /> TL</div>
                       </div>
@@ -330,12 +328,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="flex justify-center mb-8">
-                       <div className="bg-slate-900 rounded-full p-1 border border-slate-800 flex">
-                         <button className="px-6 py-1.5 rounded-full bg-slate-800 text-slate-200 text-sm font-medium shadow-sm">Hisse</button>
-                         <button className="px-6 py-1.5 rounded-full text-slate-500 text-sm font-medium hover:text-slate-300 transition-colors">Sektör</button>
-                       </div>
-                    </div>
+
 
                     <div className="grid grid-cols-2 gap-4 mb-8">
                       <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
@@ -917,8 +910,8 @@ export default function Dashboard() {
                </div>
                <Input label="Not" name="note" />
                <div className="flex items-center gap-2 pt-2">
-                 <input type="checkbox" id="isDrip" name="isDrip" className="w-4 h-4 accent-[#141414]" />
-                 <label htmlFor="isDrip" className="font-serif italic text-sm opacity-80 cursor-pointer">Bu alım temettü geliriyle yapıldı (DRIP)</label>
+                 <input type="checkbox" id="isDrip" name="isDrip" className="w-4 h-4 accent-cyan-500 bg-slate-900 border-slate-800 rounded" />
+                 <label htmlFor="isDrip" className="text-sm text-slate-400 font-medium cursor-pointer">Bu alım temettü geliriyle yapıldı (DRIP)</label>
                </div>
             </div>
           </Modal>
@@ -989,23 +982,23 @@ export default function Dashboard() {
                   .filter(p => p.stockId === viewingPurchases)
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map(p => (
-                    <div key={p.id} className="flex justify-between items-center border border-[#141414] p-4 bg-white/50">
+                    <div key={p.id} className="flex justify-between items-center bg-slate-950/50 border border-slate-800 p-4 rounded-xl mb-3">
                       <div>
-                        <div className="font-mono font-bold text-lg">{p.qty} Lot</div>
-                        <div className="font-serif italic text-[10px] opacity-70">
+                        <div className="font-bold text-lg text-slate-200">{p.qty} Lot</div>
+                        <div className="text-xs text-slate-500">
                           {p.date} &bull; Birim: {formatCurrency(p.price)}
-                          {p.isDrip && <span className="ml-2 text-green-700">(DRIP)</span>}
+                          {p.isDrip && <span className="ml-2 text-emerald-400 font-medium">(DRIP)</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <div className="font-mono text-lg">{formatCurrency(p.qty * p.price)}</div>
+                        <div className="font-bold text-lg text-emerald-400">{formatCurrency(p.qty * p.price)}</div>
                         <button 
                           type="button"
                           onClick={() => {
                             dbService.remove('purchases', p.id);
                             showToast('Alım kaydı silindi');
                           }} 
-                          className="text-red-600 hover:text-red-800"
+                          className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-700 transition-colors"
                           title="Bu alımı sil"
                         >
                           <Trash2 size={16} />
@@ -1022,74 +1015,21 @@ export default function Dashboard() {
   );
 }
 
-function Sidebar({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (t: Tab) => void }) {
-  const items = [
-    { id: 'dash' as const, ico: <PieChart size={20}/>, lbl: 'Özet' },
-    { id: 'pf' as const, ico: <Briefcase size={20}/>, lbl: 'Varlıklar' },
-    { id: 'div' as const, ico: <DollarSign size={20}/>, lbl: 'Gelirler' },
-    { id: 'an' as const, ico: <TrendingUp size={20}/>, lbl: 'Analiz' },
-    { id: 'goal' as const, ico: <Target size={20}/>, lbl: 'Vizyon' },
-  ];
-
-  return (
-    <div className="fixed left-0 top-0 h-full w-16 border-r border-[#141414] flex flex-col items-center py-10 gap-10 bg-[#E4E3E0] z-30 overflow-hidden">
-      <div className="w-8 h-8 bg-[#141414] text-[#E4E3E0] flex items-center justify-center font-serif italic font-black">P</div>
-      <div className="flex flex-col gap-8 flex-1">
-        {items.map(item => (
-          <button 
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={cn(
-              "p-3 transition-all relative group",
-              activeTab === item.id ? "opacity-100" : "opacity-30 hover:opacity-100"
-            )}
-          >
-            {item.ico}
-            <div className="absolute left-16 bg-[#141414] text-[#E4E3E0] text-[10px] px-2 py-1 uppercase tracking-widest hidden group-hover:block whitespace-nowrap z-50">
-              {item.lbl}
-            </div>
-            {activeTab === item.id && <motion.div layoutId="nav-bg" className="absolute left-0 top-0 w-1 h-full bg-[#141414]" />}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StatItem({ label, value, subText, trend, highlight }: { label: string, value: string, subText?: string, trend?: 'up' | 'down', highlight?: boolean }) {
-  return (
-    <div className={cn("p-8", highlight && "bg-[#141414] text-[#E4E3E0]")}>
-      <div className={cn("font-serif italic text-[10px] uppercase tracking-widest mb-1 opacity-50", highlight && "opacity-100")}>{label}</div>
-      <div className="flex items-baseline gap-2">
-        <div className="text-2xl font-mono font-black tracking-tighter">{value}</div>
-        {trend && (
-           <div className={cn(
-             "text-[10px] font-mono",
-             trend === 'up' ? "text-green-700" : "text-red-700"
-           )}>
-             {trend === 'up' ? '▲' : '▼'} {subText}
-           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function Modal({ title, children, onClose, onSave }: { title: string, children: React.ReactNode, onClose: () => void, onSave: (data?: any) => Promise<void> | void }) {
   const [saving, setSaving] = useState(false);
 
   return (
     <div
-      className="fixed inset-0 bg-[#141414]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 20, opacity: 0 }}
-        className="bg-[#E4E3E0] border border-[#141414] w-full max-w-lg p-10"
+        initial={{ y: 20, opacity: 0, scale: 0.95 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 20, opacity: 0, scale: 0.95 }}
+        className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-8 shadow-2xl overflow-hidden"
       >
-        <h2 className="text-3xl font-bold uppercase tracking-tighter mb-8 border-b border-[#141414] pb-4">{title}</h2>
+        <h2 className="text-2xl font-bold text-white mb-6 border-b border-slate-800 pb-4">{title}</h2>
         <form onSubmit={async (e) => {
           e.preventDefault();
           if (saving) return;
@@ -1102,9 +1042,9 @@ function Modal({ title, children, onClose, onSave }: { title: string, children: 
           }
         }}>
           {children}
-          <div className="flex gap-4 mt-12 pt-8 border-t border-[#141414]/10">
-            <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-4 border border-[#141414] font-mono text-[10px] uppercase tracking-widest disabled:opacity-50">İptal</button>
-            <button type="submit" disabled={saving} className="flex-1 py-4 bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest disabled:opacity-50">
+          <div className="flex gap-4 mt-8 pt-6 border-t border-slate-800">
+            <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-medium hover:bg-slate-700 transition-colors disabled:opacity-50">İptal</button>
+            <button type="submit" disabled={saving} className="flex-1 py-3 rounded-xl bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-colors disabled:opacity-50">
               {saving ? 'KAYDEDİLİYOR...' : 'Kaydet'}
             </button>
           </div>
@@ -1116,18 +1056,18 @@ function Modal({ title, children, onClose, onSave }: { title: string, children: 
 
 function Input({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="font-serif italic text-[10px] uppercase opacity-50">{label}</label>
-      <input {...props} className="bg-transparent border-b border-[#141414] py-2 outline-none font-sans text-sm focus:border-b-2" />
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <input {...props} className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 outline-none focus:border-cyan-500 transition-colors" />
     </div>
   );
 }
 
 function Select({ label, options, ...props }: { label: string, options: (string | { label: string, value: string })[] } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="font-serif italic text-[10px] uppercase opacity-50">{label}</label>
-      <select {...props} className="bg-transparent border-b border-[#141414] py-3 outline-none font-sans text-sm appearance-none">
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
+      <select {...props} className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 outline-none focus:border-cyan-500 transition-colors appearance-none cursor-pointer">
         {options.map(opt => typeof opt === 'string' ? <option key={opt} value={opt}>{opt}</option> : <option key={opt.value} value={opt.value}>{opt.label}</option>)}
       </select>
     </div>
