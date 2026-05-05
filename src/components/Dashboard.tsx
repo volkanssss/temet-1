@@ -59,6 +59,7 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(false);
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
+  const [viewingStockDetails, setViewingStockDetails] = useState<string | null>(null);
   const [toast, setToast] = useState<{msg: string, ok: boolean} | null>(null);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
   const showToast = useCallback((msg: string, ok = true) => {
@@ -460,7 +461,7 @@ export default function Dashboard() {
                      <motion.div 
                        key={stock.id} 
                        whileHover={{ y: -2, scale: 1.02 }}
-                       onClick={() => setActiveTab('pf')} 
+                       onClick={() => setViewingStockDetails(stock.id)} 
                        className="border border-slate-800 p-4 bg-slate-900/60 hover:bg-slate-800 transition-all group flex flex-col justify-between cursor-pointer rounded-2xl shadow-sm"
                      >
                         <div className="flex justify-between items-start mb-3">
@@ -498,7 +499,8 @@ export default function Dashboard() {
                 </div>
 
 
-                <div className="overflow-x-auto bg-slate-900/50 rounded-2xl border border-slate-800">
+                {/* Masaüstü Görünümü (Tablo) */}
+                <div className="hidden md:block overflow-x-auto bg-slate-900/50 rounded-2xl border border-slate-800">
                   <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="text-xs text-slate-400 bg-slate-800/50 uppercase">
                       <tr>
@@ -516,7 +518,11 @@ export default function Dashboard() {
                       {stocks.map(s => {
                         const stats = stockStats.find(x => x.id === s.id);
                         return (
-                          <tr key={s.id} className="hover:bg-slate-800/30 transition-colors group">
+                          <tr 
+                            key={s.id} 
+                            onClick={() => setViewingStockDetails(s.id)}
+                            className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                          >
                             <td className="px-6 py-4">
                               <div className="font-bold text-slate-100">{s.ticker}</div>
                               <div className="text-[10px] text-slate-500 truncate max-w-[150px]">{s.name}</div>
@@ -536,18 +542,70 @@ export default function Dashboard() {
                                 {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
                               </div>
                             </td>
-                            <td className="px-6 py-4 flex justify-end gap-2">
+                            <td className="px-6 py-4 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                               <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-slate-700" title="Alım Ekle"><Plus size={14}/></button>
                               <button onClick={() => setViewingPurchases(s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-blue-400 hover:bg-slate-700" title="Alımları Yönet"><Edit2 size={14}/></button>
-                              <button onClick={() => dbService.remove('stocks', s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-red-400 hover:bg-slate-700" title="Sil (alımlar ve temettüler de silinir)"><Trash2 size={14}/></button>
+                              <button onClick={() => dbService.remove('stocks', s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-red-400 hover:bg-slate-700" title="Sil"><Trash2 size={14}/></button>
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                  {stocks.length === 0 && <div className="p-12 text-center text-slate-500">Kayıtlı hisse bulunamadı.</div>}
                 </div>
+
+                {/* Mobil Görünümü (Kartlar) */}
+                <div className="md:hidden space-y-4">
+                  {stocks.map(s => {
+                    const stats = stockStats.find(x => x.id === s.id);
+                    return (
+                      <div 
+                        key={s.id} 
+                        onClick={() => setViewingStockDetails(s.id)}
+                        className="bg-slate-900/50 rounded-2xl border border-slate-800 p-4 space-y-4 active:scale-[0.98] transition-transform"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-bold text-lg text-slate-100">{s.ticker}</div>
+                            <div className="text-xs text-slate-500">{s.name}</div>
+                          </div>
+                          <div className={cn(
+                            "px-2 py-1 rounded-md text-xs font-medium",
+                            (stats?.profitLoss || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                          )}>
+                            {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <div className="text-slate-500 text-[10px] uppercase font-medium">Adet</div>
+                            <div className="text-slate-200 font-medium">{stats?.qty}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 text-[10px] uppercase font-medium">Ort. Maliyet</div>
+                            <div className="text-slate-200 font-medium">{formatCurrency(stats?.avgCost || 0)}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 text-[10px] uppercase font-medium">Güncel Fiyat</div>
+                            <div className="text-slate-200 font-medium">{s.lastPrice ? formatCurrency(s.lastPrice) : '---'}</div>
+                          </div>
+                          <div>
+                            <div className="text-slate-500 text-[10px] uppercase font-medium">Güncel Değer</div>
+                            <div className="text-white font-bold">{formatCurrency(stats?.currentValue || 0)}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-slate-800/60" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center gap-2 text-xs font-medium"><Plus size={14}/> Alım</button>
+                          <button onClick={() => setViewingPurchases(s.id)} className="flex-1 py-2 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center gap-2 text-xs font-medium"><Edit2 size={14}/> Yönet</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {stocks.length === 0 && <div className="p-12 text-center text-slate-500">Kayıtlı hisse bulunamadı.</div>}
              </motion.div>
           )}
 
@@ -805,6 +863,89 @@ export default function Dashboard() {
 
       {/* Modals */}
       <AnimatePresence>
+        {viewingStockDetails && (() => {
+          const s = stockStats.find(x => x.id === viewingStockDetails);
+          if (!s) return null;
+          const sPurchases = purchases.filter(p => p.stockId === s.id).sort((a,b) => b.date.localeCompare(a.date));
+          const sDividends = dividends.filter(d => d.stockId === s.id).sort((a,b) => b.date.localeCompare(a.date));
+
+          return (
+            <Modal 
+              title={`${s.ticker} Detay`} 
+              onClose={() => setViewingStockDetails(null)} 
+              onSave={() => setViewingStockDetails(null)}
+            >
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
+                  <div>
+                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Güncel Değer</div>
+                    <div className="text-2xl font-bold text-white">{formatCurrency(s.currentValue)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Toplam K/Z</div>
+                    <div className={cn("text-lg font-bold", s.profitLoss >= 0 ? "text-emerald-400" : "text-red-400")}>
+                      {s.profitLoss >= 0 ? '↑' : '↓'} {formatPercentage(s.profitLossPct)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-800/50">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Maliyet</div>
+                    <div className="text-sm font-semibold text-slate-200">{formatCurrency(s.avgCost)}</div>
+                  </div>
+                  <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-800/50">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Adet</div>
+                    <div className="text-sm font-semibold text-slate-200">{s.qty} LOT</div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Son İşlemler</h3>
+                  <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 hide-scrollbar">
+                    {sPurchases.slice(0, 5).map(p => (
+                      <div key={p.id} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-xl border border-slate-800/40 text-xs">
+                        <div className="text-slate-300 font-medium">{p.qty} Lot Alım</div>
+                        <div className="text-slate-500">{p.date}</div>
+                      </div>
+                    ))}
+                    {sPurchases.length === 0 && <div className="text-center py-4 text-slate-600 text-xs italic">İşlem kaydı yok.</div>}
+                  </div>
+                </div>
+
+                {sDividends.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Temettü Geçmişi</h3>
+                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 hide-scrollbar">
+                      {sDividends.map(d => (
+                        <div key={d.id} className="flex justify-between items-center bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 text-xs">
+                          <div className="text-emerald-400 font-medium">{formatCurrency(d.net)}</div>
+                          <div className="text-slate-500">{d.date}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button 
+                    onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }}
+                    className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold hover:bg-slate-700 transition-colors"
+                  >
+                    ALIM EKLE
+                  </button>
+                  <button 
+                    onClick={() => dbService.remove('stocks', s.id).then(() => setViewingStockDetails(null))}
+                    className="p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            </Modal>
+          );
+        })()}
+
         {isAddingStock && (
           <Modal 
             title="Hisse Ekle" 
