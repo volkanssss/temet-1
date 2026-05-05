@@ -55,8 +55,8 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(false);
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-
+  const [toast, setToast] = useState<{msg: string, ok: boolean} | null>(null);
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   const showToast = useCallback((msg: string, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3500);
@@ -182,6 +182,14 @@ export default function Dashboard() {
     
     return () => clearInterval(interval);
   }, [stocks.length]);
+
+  // Sayfa yüklendiğinde otomatik ilk veri çekimi
+  useEffect(() => {
+    if (stocks.length > 0 && !initialFetchDone) {
+      refreshPrices();
+      setInitialFetchDone(true);
+    }
+  }, [stocks.length, initialFetchDone]);
 
   return (
     <div className="min-h-screen bg-[#E4E3E0] text-[#141414] font-sans selection:bg-[#141414] selection:text-[#E4E3E0]">
@@ -320,17 +328,24 @@ export default function Dashboard() {
                     </div>
 
                     {chartData.length > 0 && (
-                      <div className="border border-[#141414] p-6 bg-white/50 h-[300px]">
-                         <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-6">Portföy Büyüme Eğrisi</h3>
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="border border-[#141414]/20 p-6 bg-gradient-to-br from-white/80 to-white/30 backdrop-blur-md shadow-sm h-[320px] rounded-lg"
+                      >
+                         <h3 className="font-mono text-xs font-bold uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            Portföy Büyüme Eğrisi
+                         </h3>
                          <ResponsiveContainer width="100%" height="100%">
-                           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                              <defs>
                                <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                                 <stop offset="5%" stopColor="#141414" stopOpacity={0.3}/>
-                                 <stop offset="95%" stopColor="#141414" stopOpacity={0}/>
+                                 <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                                 <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                                </linearGradient>
                                <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                                 <stop offset="5%" stopColor="#9CA3AF" stopOpacity={0.3}/>
+                                 <stop offset="5%" stopColor="#9CA3AF" stopOpacity={0.2}/>
                                  <stop offset="95%" stopColor="#9CA3AF" stopOpacity={0}/>
                                </linearGradient>
                              </defs>
@@ -338,15 +353,16 @@ export default function Dashboard() {
                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} dy={10} />
                              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(val) => '₺' + (val/1000).toFixed(0) + 'k'} />
                              <Tooltip 
-                                contentStyle={{ backgroundColor: '#141414', color: '#E4E3E0', border: 'none', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace' }}
+                                contentStyle={{ backgroundColor: '#141414', color: '#E4E3E0', border: 'none', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                                 itemStyle={{ color: '#E4E3E0' }}
                                 formatter={(value: number) => formatCurrency(value)}
+                                cursor={{ stroke: '#6B7280', strokeWidth: 1, strokeDasharray: '3 3' }}
                              />
-                             <Area type="monotone" dataKey="Net Maliyet" stroke="#9CA3AF" fillOpacity={1} fill="url(#colorCost)" />
-                             <Area type="monotone" dataKey="Portföy Değeri" stroke="#141414" strokeWidth={2} fillOpacity={1} fill="url(#colorVal)" />
+                             <Area type="monotone" dataKey="Net Maliyet" stroke="#9CA3AF" strokeWidth={2} fillOpacity={1} fill="url(#colorCost)" />
+                             <Area type="monotone" dataKey="Portföy Değeri" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }} />
                            </AreaChart>
                          </ResponsiveContainer>
-                      </div>
+                      </motion.div>
                     )}
                   </>
                 );
@@ -399,25 +415,35 @@ export default function Dashboard() {
               })()}
 
 
-              {/* Position Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {stockStats.map(stock => (
-                   <div key={stock.id} onClick={() => setActiveTab('pf')} className="border border-[#141414] p-6 hover:bg-[#141414] hover:text-white transition-all group flex justify-between items-center cursor-pointer">
-                      <div>
-                        <div className="font-mono text-xl font-black mb-1">{stock.ticker}</div>
-                        <div className="font-serif italic text-xs opacity-50 group-hover:opacity-100">{stock.name} &bull; {stock.sector}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono text-lg">{formatCurrency(stock.currentValue)}</div>
-                        <div className={cn(
-                          "font-mono text-[10px] uppercase",
-                          stock.profitLoss >= 0 ? "text-green-700 group-hover:text-green-400" : "text-red-700 group-hover:text-red-400"
-                        )}>
-                          {stock.profitLoss >= 0 ? '▲' : '▼'} {formatPercentage(stock.profitLossPct)}
+              {/* Position Grid - Compact */}
+              <div className="mb-8">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Hisse Özetleri</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                   {stockStats.map(stock => (
+                     <motion.div 
+                       key={stock.id} 
+                       whileHover={{ y: -2 }}
+                       onClick={() => setActiveTab('pf')} 
+                       className="border border-[#141414]/20 p-3 bg-white/60 hover:bg-[#141414] hover:text-white transition-all group flex flex-col justify-between cursor-pointer rounded-lg shadow-sm"
+                     >
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-mono text-sm font-black leading-none">{stock.ticker}</div>
+                            <div className="font-serif italic text-[9px] opacity-50 group-hover:opacity-100 mt-1 line-clamp-1">{stock.name}</div>
+                          </div>
+                          <div className={cn(
+                            "font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-sm",
+                            stock.profitLoss >= 0 ? "bg-green-100 text-green-700 group-hover:bg-green-900 group-hover:text-green-300" : "bg-red-100 text-red-700 group-hover:bg-red-900 group-hover:text-red-300"
+                          )}>
+                            {stock.profitLoss >= 0 ? '▲' : '▼'} {formatPercentage(stock.profitLossPct)}
+                          </div>
                         </div>
-                      </div>
-                   </div>
-                 ))}
+                        <div>
+                          <div className="font-mono text-xs text-right opacity-70 group-hover:opacity-90">{formatCurrency(stock.currentValue)}</div>
+                        </div>
+                     </motion.div>
+                   ))}
+                </div>
               </div>
             </motion.div>
           )}
