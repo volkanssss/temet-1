@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [newStockData, setNewStockData] = useState({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
+  const [infoLoading, setInfoLoading] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
@@ -489,24 +490,27 @@ export default function Dashboard() {
                   const val = e.target.value.toUpperCase();
                   setNewStockData(prev => ({ ...prev, ticker: val }));
                   
-                  if (val.length >= 4) {
+                  if (val.length >= 3) {
+                    setInfoLoading(true);
                     try {
                       const info = await fetchStockInfo(val, newStockData.exchange);
-                      if (info.success) {
+                      if (info.success && info.name) {
                         setNewStockData(prev => ({ 
                           ...prev, 
                           name: info.name, 
-                          sector: info.sector 
+                          sector: info.sector || prev.sector
                         }));
                       }
                     } catch (err) {
-                      console.error("Info fetch failed", err);
+                      console.error('Info fetch failed', err);
+                    } finally {
+                      setInfoLoading(false);
                     }
                   }
                 }}
               />
               <Input 
-                label="Şirket Adı" 
+                label={infoLoading ? 'Şirket Adı (aranıyor...)' : 'Şirket Adı'} 
                 name="name" 
                 required 
                 value={newStockData.name}
