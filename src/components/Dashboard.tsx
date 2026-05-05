@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [isAddingPurchase, setIsAddingPurchase] = useState(false);
   const [isAddingDividend, setIsAddingDividend] = useState(false);
   const [isAddingGoal, setIsAddingGoal] = useState(false);
+  const [viewingPurchases, setViewingPurchases] = useState<string | null>(null);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [newStockData, setNewStockData] = useState({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
   const [infoLoading, setInfoLoading] = useState(false);
@@ -318,6 +319,7 @@ export default function Dashboard() {
                             </td>
                             <td className="p-4 flex gap-2">
                               <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="hover:text-green-600" title="Alım Ekle"><Plus size={16}/></button>
+                              <button onClick={() => setViewingPurchases(s.id)} className="hover:text-blue-600" title="Alımları Yönet"><Edit2 size={16}/></button>
                               <button onClick={() => dbService.remove('stocks', s.id)} className="hover:text-red-600" title="Sil (alımlar ve temettüler de silinir)"><Trash2 size={16}/></button>
                             </td>
                           </tr>
@@ -749,6 +751,45 @@ export default function Dashboard() {
             </div>
           </Modal>
         )}
+
+        {viewingPurchases && (
+          <Modal title="Alımları Yönet" onClose={() => setViewingPurchases(null)} onSave={() => setViewingPurchases(null)}>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {purchases.filter(p => p.stockId === viewingPurchases).length === 0 ? (
+                <div className="text-center font-serif italic opacity-50 py-4">Bu hisseye ait alım kaydı bulunamadı.</div>
+              ) : (
+                purchases
+                  .filter(p => p.stockId === viewingPurchases)
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .map(p => (
+                    <div key={p.id} className="flex justify-between items-center border border-[#141414] p-4 bg-white/50">
+                      <div>
+                        <div className="font-mono font-bold text-lg">{p.qty} Lot</div>
+                        <div className="font-serif italic text-[10px] opacity-70">
+                          {p.date} &bull; Birim: {formatCurrency(p.price)}
+                          {p.isDrip && <span className="ml-2 text-green-700">(DRIP)</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="font-mono text-lg">{formatCurrency(p.qty * p.price)}</div>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            dbService.remove('purchases', p.id);
+                            showToast('Alım kaydı silindi');
+                          }} 
+                          className="text-red-600 hover:text-red-800"
+                          title="Bu alımı sil"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </Modal>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -807,7 +848,9 @@ function StatItem({ label, value, subText, trend, highlight }: { label: string, 
   );
 }
 
-function Modal({ title, children, onClose, onSave }: { title: string, children: React.ReactNode, onClose: () => void, onSave: (data?: any) => void }) {
+function Modal({ title, children, onClose, onSave }: { title: string, children: React.ReactNode, onClose: () => void, onSave: (data?: any) => Promise<void> | void }) {
+  const [saving, setSaving] = useState(false);
+
   return (
     <div
       className="fixed inset-0 bg-[#141414]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
@@ -820,15 +863,23 @@ function Modal({ title, children, onClose, onSave }: { title: string, children: 
         className="bg-[#E4E3E0] border border-[#141414] w-full max-w-lg p-10"
       >
         <h2 className="text-3xl font-bold uppercase tracking-tighter mb-8 border-b border-[#141414] pb-4">{title}</h2>
-        <form onSubmit={(e) => {
+        <form onSubmit={async (e) => {
           e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          onSave(Object.fromEntries(fd.entries()));
+          if (saving) return;
+          setSaving(true);
+          try {
+            const fd = new FormData(e.currentTarget);
+            await onSave(Object.fromEntries(fd.entries()));
+          } finally {
+            setSaving(false);
+          }
         }}>
           {children}
           <div className="flex gap-4 mt-12 pt-8 border-t border-[#141414]/10">
-            <button type="button" onClick={onClose} className="flex-1 py-4 border border-[#141414] font-mono text-[10px] uppercase tracking-widest">İptal</button>
-            <button type="submit" className="flex-1 py-4 bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest">Kaydet</button>
+            <button type="button" onClick={onClose} disabled={saving} className="flex-1 py-4 border border-[#141414] font-mono text-[10px] uppercase tracking-widest disabled:opacity-50">İptal</button>
+            <button type="submit" disabled={saving} className="flex-1 py-4 bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest disabled:opacity-50">
+              {saving ? 'KAYDEDİLİYOR...' : 'Kaydet'}
+            </button>
           </div>
         </form>
       </motion.div>
