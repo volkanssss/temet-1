@@ -60,6 +60,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
   const [viewingStockDetails, setViewingStockDetails] = useState<string | null>(null);
+  const [summaryRange, setSummaryRange] = useState<'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('all');
   const [toast, setToast] = useState<{msg: string, ok: boolean} | null>(null);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
   const showToast = useCallback((msg: string, ok = true) => {
@@ -299,8 +300,25 @@ export default function Dashboard() {
                 };
 
                 const daily = calcPnl(getSnapshot(1));
+                const weekly = calcPnl(getSnapshot(7));
                 const monthly = calcPnl(getSnapshot(30));
                 const yearly = calcPnl(getSnapshot(365));
+
+                const ranges = {
+                  all: { label: 'Tüm Zamanlar Değer', pnl: summary.pnl, pct: summary.pnlPct },
+                  daily: { label: 'Günlük Değişim', pnl: daily?.val || 0, pct: daily?.pct || 0 },
+                  weekly: { label: 'Haftalık Değişim', pnl: weekly?.val || 0, pct: weekly?.pct || 0 },
+                  monthly: { label: 'Aylık Değişim', pnl: monthly?.val || 0, pct: monthly?.pct || 0 },
+                  yearly: { label: 'Yıllık Değişim', pnl: yearly?.val || 0, pct: yearly?.pct || 0 }
+                };
+
+                const currentRange = ranges[summaryRange];
+
+                const cycleRange = () => {
+                  const order: ('all' | 'daily' | 'weekly' | 'monthly' | 'yearly')[] = ['all', 'daily', 'weekly', 'monthly', 'yearly'];
+                  const nextIndex = (order.indexOf(summaryRange) + 1) % order.length;
+                  setSummaryRange(order[nextIndex]);
+                };
 
                 const chartData = [...history].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(h => ({
                   name: new Date(h.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
@@ -317,15 +335,20 @@ export default function Dashboard() {
 
                 return (
                   <>
-                    <div className="flex flex-col items-center mb-8 pt-4">
-
+                    <div 
+                      className="flex flex-col items-center mb-8 pt-4 cursor-pointer select-none group active:scale-[0.98] transition-transform"
+                      onClick={cycleRange}
+                    >
                       <div className="w-full flex justify-end pr-4 mb-2">
                         <div className="flex items-center gap-1.5 text-slate-400 text-sm font-medium"><Eye size={16} /> TL</div>
                       </div>
-                      <div className="text-slate-500 text-sm mb-1 font-medium">Tüm Zamanlar Değer</div>
+                      <div className="text-slate-500 text-sm mb-1 font-medium group-hover:text-cyan-400 transition-colors flex items-center gap-2">
+                        {currentRange.label}
+                        <RefreshCcw size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                       <div className="text-[40px] font-bold text-white mb-2 tracking-tight">{formatCurrency(summary.totalValue)}</div>
-                      <div className={cn("text-sm font-medium flex items-center gap-1", summary.pnl >= 0 ? "text-emerald-400" : "text-red-400")}>
-                        {summary.pnl >= 0 ? '↑' : '↓'} {summary.pnl >= 0 ? '+' : ''}{formatCurrency(summary.pnl)} (%{formatPercentage(summary.pnlPct)})
+                      <div className={cn("text-sm font-medium flex items-center gap-1", currentRange.pnl >= 0 ? "text-emerald-400" : "text-red-400")}>
+                        {currentRange.pnl >= 0 ? '↑' : '↓'} {currentRange.pnl >= 0 ? '+' : ''}{formatCurrency(currentRange.pnl)} (%{formatPercentage(currentRange.pct)})
                       </div>
                     </div>
 
