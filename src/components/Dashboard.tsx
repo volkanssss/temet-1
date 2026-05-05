@@ -494,64 +494,66 @@ export default function Dashboard() {
 
           {activeTab === 'pf' && (
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Varlık Listesi</h2>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                  <h2 className="text-xl font-semibold text-slate-200">Varlık Listesi</h2>
                   <button 
                     onClick={() => setIsAddingStock(true)}
-                    className="px-6 py-2 bg-[#141414] text-white font-mono uppercase text-[10px] tracking-widest hover:opacity-90"
+                    className="px-6 py-2 rounded-full bg-slate-100 text-slate-900 font-medium text-sm hover:bg-white transition-all w-full md:w-auto flex justify-center items-center gap-2"
                   >
-                    Hisse Ekle
+                    <Plus size={16} /> Hisse Ekle
                   </button>
                 </div>
 
 
-                <div className="border border-[#141414]">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="bg-[#141414] text-[#E4E3E0] font-mono text-[10px] uppercase tracking-widest">
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Hisse</th>
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Sektör</th>
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Adet</th>
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Ort. Maliyet</th>
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Gncel Fiyat</th>
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">Gncel Değer</th>
-                        <th className="p-4 text-left font-normal border-r border-[#E4E3E0]/10">K/Z</th>
-                        <th className="p-4 text-left font-normal">Aksiyon</th>
+                <div className="overflow-x-auto bg-slate-900/50 rounded-2xl border border-slate-800">
+                  <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="text-xs text-slate-400 bg-slate-800/50 uppercase">
+                      <tr>
+                        <th className="px-6 py-4 font-medium">Hisse</th>
+                        <th className="px-6 py-4 font-medium">Sektör</th>
+                        <th className="px-6 py-4 font-medium">Adet</th>
+                        <th className="px-6 py-4 font-medium">Ort. Maliyet</th>
+                        <th className="px-6 py-4 font-medium">Güncel Fiyat</th>
+                        <th className="px-6 py-4 font-medium">Güncel Değer</th>
+                        <th className="px-6 py-4 font-medium">K/Z</th>
+                        <th className="px-6 py-4 font-medium text-right">İşlem</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-800/60">
                       {stocks.map(s => {
                         const stats = stockStats.find(x => x.id === s.id);
                         return (
-                          <tr key={s.id} className="border-b border-[#141414] hover:bg-[#141414]/5 transition-colors group">
-                            <td className="p-4 border-r border-[#141414]">
-                              <div className="font-mono font-bold">{s.ticker}</div>
-                              <div className="text-[10px] opacity-50 truncate max-w-[150px]">{s.name}</div>
+                          <tr key={s.id} className="hover:bg-slate-800/30 transition-colors group">
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-slate-100">{s.ticker}</div>
+                              <div className="text-[10px] text-slate-500 truncate max-w-[150px]">{s.name}</div>
                             </td>
-                            <td className="p-4 border-r border-[#141414] font-serif italic text-sm">{s.sector}</td>
-                            <td className="p-4 border-r border-[#141414] font-mono">{stats?.qty}</td>
-                            <td className="p-4 border-r border-[#141414] font-mono">{formatCurrency(stats?.avgCost || 0)}</td>
-                            <td className="p-4 border-r border-[#141414] font-mono">
-                              {s.lastPrice ? formatCurrency(s.lastPrice) : <span className="opacity-30 text-[10px]">Güncellenmedi</span>}
+                            <td className="px-6 py-4 text-slate-400">{s.sector}</td>
+                            <td className="px-6 py-4 font-medium text-slate-200">{stats?.qty}</td>
+                            <td className="px-6 py-4 text-slate-300">{formatCurrency(stats?.avgCost || 0)}</td>
+                            <td className="px-6 py-4 text-slate-300">
+                              {s.lastPrice ? formatCurrency(s.lastPrice) : <span className="opacity-50 text-[10px] bg-slate-800 px-2 py-1 rounded-md">Güncellenmedi</span>}
                             </td>
-                            <td className="p-4 border-r border-[#141414] font-mono">{formatCurrency(stats?.currentValue || 0)}</td>
-                            <td className={cn(
-                              "p-4 border-r border-[#141414] font-mono text-xs",
-                              (stats?.profitLoss || 0) >= 0 ? "text-green-700" : "text-red-700"
-                            )}>
-                              {(stats?.profitLoss || 0) >= 0 ? '▲' : '▼'} {formatPercentage(stats?.profitLossPct || 0)}
+                            <td className="px-6 py-4 font-medium text-white">{formatCurrency(stats?.currentValue || 0)}</td>
+                            <td className="px-6 py-4">
+                              <div className={cn(
+                                "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
+                                (stats?.profitLoss || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                              )}>
+                                {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
+                              </div>
                             </td>
-                            <td className="p-4 flex gap-2">
-                              <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="hover:text-green-600" title="Alım Ekle"><Plus size={16}/></button>
-                              <button onClick={() => setViewingPurchases(s.id)} className="hover:text-blue-600" title="Alımları Yönet"><Edit2 size={16}/></button>
-                              <button onClick={() => dbService.remove('stocks', s.id)} className="hover:text-red-600" title="Sil (alımlar ve temettüler de silinir)"><Trash2 size={16}/></button>
+                            <td className="px-6 py-4 flex justify-end gap-2">
+                              <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-slate-700" title="Alım Ekle"><Plus size={14}/></button>
+                              <button onClick={() => setViewingPurchases(s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-blue-400 hover:bg-slate-700" title="Alımları Yönet"><Edit2 size={14}/></button>
+                              <button onClick={() => dbService.remove('stocks', s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-red-400 hover:bg-slate-700" title="Sil (alımlar ve temettüler de silinir)"><Trash2 size={14}/></button>
                             </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                  {stocks.length === 0 && <div className="p-12 text-center font-serif italic opacity-40">Kayıtlı hisse bulunamadı.</div>}
+                  {stocks.length === 0 && <div className="p-12 text-center text-slate-500">Kayıtlı hisse bulunamadı.</div>}
                 </div>
              </motion.div>
           )}
@@ -588,36 +590,36 @@ export default function Dashboard() {
                 return (
                   <>
                     {/* Özet Satırı */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 border border-[#141414] divide-x divide-[#141414]">
-                      <div className="p-6">
-                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">{thisYear} Toplam</div>
-                        <div className="font-mono text-xl font-black">{formatCurrency(yearTotal)}</div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800">
+                        <div className="text-slate-500 text-xs font-medium mb-1">{thisYear} Toplam</div>
+                        <div className="text-2xl font-bold text-white">{formatCurrency(yearTotal)}</div>
                       </div>
-                      <div className="p-6">
-                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Aylık Ort.</div>
-                        <div className="font-mono text-xl font-black">{formatCurrency(monthlyAvg)}</div>
+                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800">
+                        <div className="text-slate-500 text-xs font-medium mb-1">Aylık Ort.</div>
+                        <div className="text-2xl font-bold text-white">{formatCurrency(monthlyAvg)}</div>
                       </div>
-                      <div className="p-6">
-                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Tüm Zaman</div>
-                        <div className="font-mono text-xl font-black">{formatCurrency(allTimeTotal)}</div>
+                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800">
+                        <div className="text-slate-500 text-xs font-medium mb-1">Tüm Zaman</div>
+                        <div className="text-2xl font-bold text-white">{formatCurrency(allTimeTotal)}</div>
                       </div>
-                      <div className="p-6 bg-[#141414] text-[#E4E3E0]">
-                        <div className="font-serif italic text-[10px] uppercase opacity-70 mb-1">DRIP Geri Alım</div>
-                        <div className="font-mono text-xl font-black">{formatCurrency(dripTotal)}</div>
+                      <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700">
+                        <div className="text-cyan-400 text-xs font-medium mb-1">DRIP Geri Alım</div>
+                        <div className="text-2xl font-bold text-white">{formatCurrency(dripTotal)}</div>
                       </div>
                     </div>
 
                     {/* Aylık Dağılım ({thisYear}) */}
                     {Object.keys(byMonth).length > 0 && (
                       <div>
-                        <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">{thisYear} — Aylık Dağılım</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <h3 className="text-sm font-semibold text-slate-300 mb-4 px-1">{thisYear} — Aylık Dağılım</h3>
+                        <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-4 snap-x">
                           {Object.entries(byMonth).sort().map(([month, total]) => (
-                            <div key={month} className="border border-[#141414] p-4">
-                              <div className="font-serif italic text-[10px] opacity-50 mb-1">
+                            <div key={month} className="min-w-[140px] snap-start bg-slate-900/40 border border-slate-800 rounded-2xl p-4">
+                              <div className="text-xs text-slate-400 mb-1">
                                 {new Date(month + '-01').toLocaleString('tr-TR', { month: 'long' })}
                               </div>
-                              <div className="font-mono font-bold">{formatCurrency(total as number)}</div>
+                              <div className="text-lg font-bold text-white">{formatCurrency(total as number)}</div>
                             </div>
                           ))}
                         </div>
@@ -627,12 +629,12 @@ export default function Dashboard() {
                     {/* Hisse Başına Toplam */}
                     {Object.keys(byStock).length > 0 && (
                       <div>
-                        <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Hisse Başına Temettü</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <h3 className="text-sm font-semibold text-slate-300 mb-4 px-1">Hisse Başına Temettü</h3>
+                        <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-4 snap-x">
                           {Object.entries(byStock).sort((a,b) => (b[1] as number)-(a[1] as number)).map(([ticker, total]) => (
-                            <div key={ticker} className="border border-[#141414] p-4 flex justify-between items-center">
-                              <div className="font-mono font-bold text-sm">{ticker}</div>
-                              <div className="font-mono text-green-700">{formatCurrency(total as number)}</div>
+                            <div key={ticker} className="min-w-[160px] snap-start bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex flex-col gap-1">
+                              <div className="font-bold text-white">{ticker}</div>
+                              <div className="font-medium text-emerald-400">{formatCurrency(total as number)}</div>
                             </div>
                           ))}
                         </div>
@@ -643,36 +645,36 @@ export default function Dashboard() {
               })()}
 
               {/* Liste Başlığı + Ekle Butonu */}
-              <div className="flex justify-between items-center">
-                <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Geçmiş Ödemeler</h2>
+              <div className="flex justify-between items-center mb-4 px-1">
+                <h2 className="text-xl font-semibold text-slate-200">Geçmiş Ödemeler</h2>
                 <button 
                   onClick={() => setIsAddingDividend(true)}
-                  className="px-6 py-2 bg-[#141414] text-white font-mono uppercase text-[10px] tracking-widest"
+                  className="px-5 py-2 bg-slate-800 text-slate-200 text-sm font-medium rounded-full hover:bg-slate-700"
                 >
                   Temettü Ekle
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 gap-3">
                  {dividends.sort((a,b) => b.date.localeCompare(a.date)).map(d => (
-                   <div key={d.id} className="border border-[#141414] p-6 flex justify-between items-center">
-                     <div className="flex items-center gap-6">
-                        <div className="w-12 h-12 border border-[#141414] flex items-center justify-center font-mono font-black text-xl bg-[#141414] text-white">{d.ticker.slice(0,1)}</div>
+                   <div key={d.id} className="bg-slate-900/40 rounded-2xl border border-slate-800 p-5 flex justify-between items-center">
+                     <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-lg text-slate-300">{d.ticker.slice(0,1)}</div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-mono text-lg font-bold">{d.ticker}</div>
-                            {(d as any).isDrip && <span className="text-[9px] font-mono uppercase bg-green-100 text-green-800 px-2 py-0.5 border border-green-300">DRIP</span>}
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="font-bold text-slate-100">{d.ticker}</div>
+                            {(d as any).isDrip && <span className="text-[10px] font-medium bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md">DRIP</span>}
                           </div>
-                          <div className="font-serif italic text-xs opacity-50">{d.date} &bull; {d.qty} LOT &bull; ₺{d.ps}/HİSSE</div>
+                          <div className="text-xs text-slate-500">{d.date} &bull; {d.qty} LOT &bull; ₺{d.ps}/HİSSE</div>
                         </div>
                      </div>
-                     <div className="text-right">
-                       <div className="font-mono text-2xl font-bold text-green-800">{formatCurrency(d.net)}</div>
-                       <button onClick={() => dbService.remove('dividends', d.id)} className="text-[10px] font-mono opacity-30 hover:opacity-100 uppercase tracking-widest mt-1">SİL</button>
+                     <div className="text-right flex flex-col items-end">
+                       <div className="text-xl font-bold text-emerald-400">{formatCurrency(d.net)}</div>
+                       <button onClick={() => dbService.remove('dividends', d.id)} className="text-[10px] text-slate-500 hover:text-red-400 mt-1 flex items-center gap-1"><Trash2 size={12}/> SİL</button>
                      </div>
                    </div>
                  ))}
-                 {dividends.length === 0 && <div className="p-12 text-center border border-dashed border-[#141414] opacity-30 font-serif italic">Henüz ödeme kaydı yok.</div>}
+                 {dividends.length === 0 && <div className="p-12 text-center text-slate-500 bg-slate-900/20 rounded-2xl border border-dashed border-slate-800">Henüz ödeme kaydı yok.</div>}
               </div>
             </motion.div>
           )}
@@ -680,10 +682,10 @@ export default function Dashboard() {
 
           {activeTab === 'an' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div>
-                    <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Portföy Dağılımı</h3>
-                    <div className="h-[300px]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+                    <h3 className="text-sm font-semibold text-slate-300 mb-4">Portföy Dağılımı</h3>
+                    <div className="h-[250px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <RePieChart>
                           <Pie
@@ -691,35 +693,37 @@ export default function Dashboard() {
                             cx="50%"
                             cy="50%"
                             innerRadius={60}
-                            outerRadius={100}
+                            outerRadius={90}
                             paddingAngle={5}
                             dataKey="currentValue"
                             nameKey="ticker"
+                            stroke="none"
                           >
-                            {stockStats.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#141414' : '#666'} />
-                            ))}
+                            {stockStats.map((entry, index) => {
+                              const colors = ['#06b6d4', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+                              return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                            })}
                           </Pie>
-                          <Tooltip />
+                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', color: '#f8fafc' }} itemStyle={{ color: '#f8fafc' }}/>
                         </RePieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div>
-                    <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Sektörel Dağılım</h3>
-                    <div className="space-y-4 pt-4">
+                  <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+                    <h3 className="text-sm font-semibold text-slate-300 mb-4">Sektörel Dağılım</h3>
+                    <div className="space-y-4 pt-2">
                       {Object.entries(stockStats.reduce((acc, s) => {
                         acc[s.sector] = (acc[s.sector] || 0) + s.currentValue;
                         return acc;
-                      }, {} as Record<string, number>)).sort((a: any, b: any) => b[1] - a[1]).map(([sector, value]) => (
+                      }, {} as Record<string, number>)).sort((a: any, b: any) => b[1] - a[1]).map(([sector, value], i) => (
                         <div key={sector}>
-                          <div className="flex justify-between font-mono text-[10px] uppercase mb-1">
+                          <div className="flex justify-between text-xs font-medium text-slate-300 mb-2">
                             <span>{sector}</span>
-                            <span>{formatPercentage(((value as number) / (summary.totalValue as number)) * 100)}</span>
+                            <span className="text-slate-400">{formatPercentage(((value as number) / (summary.totalValue as number)) * 100)}</span>
                           </div>
-                          <div className="h-1 bg-[#141414]/10">
-                            <div className="h-full bg-[#141414]" style={{ width: `${((value as number) / (summary.totalValue as number)) * 100}%` }} />
+                          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${((value as number) / (summary.totalValue as number)) * 100}%` }} />
                           </div>
                         </div>
                       ))}
@@ -727,20 +731,20 @@ export default function Dashboard() {
                   </div>
                </div>
 
-               <div>
-                 <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-8 border-b border-[#141414] pb-2">Aylık Temettü Seyri</h3>
-                 <div className="h-[300px] w-full">
+               <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+                 <h3 className="text-sm font-semibold text-slate-300 mb-6">Aylık Temettü Seyri</h3>
+                 <div className="h-[250px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={Object.entries(dividends.reduce((acc, d) => {
                         const month = d.date.slice(0,7);
                         acc[month] = (acc[month] || 0) + d.net;
                         return acc;
                       }, {} as Record<string, number>)).sort().map(([name, net]) => ({ name, net }))}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ccc" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px', fontFamily: 'monospace' }} />
-                        <YAxis axisLine={false} tickLine={false} style={{ fontSize: '10px', fontFamily: 'monospace' }} />
-                        <Tooltip />
-                        <Bar dataKey="net" fill="#141414" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px', fill: '#64748b' }} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} style={{ fontSize: '10px', fill: '#64748b' }} tickFormatter={(val) => '₺' + (val/1000).toFixed(0) + 'k'} />
+                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', color: '#f8fafc' }} cursor={{ fill: '#1e293b' }} formatter={(val: number) => formatCurrency(val)} />
+                        <Bar dataKey="net" fill="#06b6d4" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                  </div>
@@ -750,17 +754,17 @@ export default function Dashboard() {
 
           {activeTab === 'goal' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Vizyon & Hedefler</h2>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <h2 className="text-xl font-semibold text-slate-200">Vizyon & Hedefler</h2>
                 <button 
                   onClick={() => setIsAddingGoal(true)}
-                  className="px-6 py-2 bg-[#141414] text-white font-mono uppercase text-[10px] tracking-widest"
+                  className="px-6 py-2 bg-slate-800 text-slate-200 text-sm font-medium rounded-full hover:bg-slate-700 w-full md:w-auto"
                 >
                   Hedef Koy
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-8">
+              <div className="grid grid-cols-1 gap-4">
                  {goals.map(g => {
                    let current = 0;
                    if (g.type === 'portfolio_val') current = summary.totalValue;
@@ -769,32 +773,31 @@ export default function Dashboard() {
                    const thisYear = new Date().getFullYear().toString();
                    const thisMonth = new Date().toISOString().slice(0, 7);
                    if (g.type === 'annual_div') current = dividends.filter(d => d.date.startsWith(thisYear)).reduce((a, d) => a + d.net, 0);
-                   // Bug #3 fix: monthly_div hesabı
                    if (g.type === 'monthly_div') current = dividends.filter(d => d.date.startsWith(thisMonth)).reduce((a, d) => a + d.net, 0);
                    
                    const progress = Math.min(100, ((current as number) / (g.target as number)) * 100);
 
                    return (
-                     <div key={g.id} className="border-l-4 border-[#141414] bg-[#141414]/5 p-8">
-                        <div className="flex justify-between items-start mb-6">
+                     <div key={g.id} className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6">
+                        <div className="flex justify-between items-start mb-4">
                           <div>
-                            <div className="font-serif italic text-2xl mb-1">{g.name}</div>
-                            <div className="font-mono text-[10px] uppercase opacity-50">{g.type.replace('_',' ')} &bull; {g.date || 'SÜRESİZ'}</div>
+                            <div className="text-lg font-bold text-white mb-1">{g.name}</div>
+                            <div className="text-xs text-slate-500">{g.type.replace('_',' ')} &bull; {g.date || 'SÜRESİZ'}</div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-mono text-3xl font-black">{Math.round(progress)}%</div>
-                            <button onClick={() => dbService.remove('goals', g.id)} className="text-[10px] hover:text-red-600">SİL</button>
+                          <div className="text-right flex flex-col items-end">
+                            <div className="text-2xl font-bold text-cyan-400 mb-1">{Math.round(progress)}%</div>
+                            <button onClick={() => dbService.remove('goals', g.id)} className="text-[10px] text-slate-500 hover:text-red-400 flex items-center gap-1"><Trash2 size={12}/> SİL</button>
                           </div>
                         </div>
 
-                        <div className="h-6 border border-[#141414] p-1 mb-2">
+                        <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden mb-3">
                            <motion.div 
                             initial={{ width: 0 }}
                             animate={{ width: `${progress}%` }}
-                            className="h-full bg-[#141414]" 
+                            className="h-full bg-cyan-500 rounded-full" 
                            />
                         </div>
-                        <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest opacity-60">
+                        <div className="flex justify-between text-xs font-medium text-slate-400">
                            <span>{formatCurrency(current)}</span>
                            <span>Hedef: {formatCurrency(g.target)}</span>
                         </div>
