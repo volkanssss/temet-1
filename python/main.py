@@ -87,6 +87,27 @@ async def get_prices_batch(payload: dict):
     return {ticker: price for (ticker, _, _), price in zip(symbols, prices)}
 
 
+@app.get("/info/{ticker}")
+async def get_stock_info(ticker: str, exchange: str = "BIST"):
+    try:
+        # BIST için sonuna .IS ekle (eğer yoksa)
+        symbol = ticker.upper()
+        if exchange == "BIST" and not symbol.endswith(".IS"):
+            symbol += ".IS"
+        
+        stock = yf.Ticker(symbol)
+        info = stock.info
+        
+        return {
+            "name": info.get("longName") or info.get("shortName") or ticker.upper(),
+            "sector": info.get("sector", "Diğer"),
+            "exchange": exchange,
+            "success": True
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

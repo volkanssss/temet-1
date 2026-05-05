@@ -16,7 +16,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, logout } from '../lib/supabase';
 import { dbService } from '../services/db';
-import { fetchStockPricesBatch } from '../services/price';
+import { fetchStockPricesBatch, fetchStockInfo } from '../services/price';
 import { cn, formatCurrency, formatPercentage } from '../lib/utils';
 import { StockHolding, Purchase, Dividend, Goal } from '../types/stock';
 import {
@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [isAddingDividend, setIsAddingDividend] = useState(false);
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
+  const [newStockData, setNewStockData] = useState({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
 
   const [loading, setLoading] = useState(false);
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
@@ -468,22 +469,64 @@ export default function Dashboard() {
       {/* Modals */}
       <AnimatePresence>
         {isAddingStock && (
-          <Modal title="Hisse Ekle" onClose={() => setIsAddingStock(false)} onSave={async (data) => {
+          <Modal title="Hisse Ekle" onClose={() => { setIsAddingStock(false); setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' }); }} onSave={async (data) => {
              await dbService.add('stocks', {
                ticker: data.ticker.toUpperCase(),
                name: data.name,
                exchange: data.exchange,
-               sector: data.sector,
-               notes: data.notes
+               sector: data.sector
              });
              setIsAddingStock(false);
+             setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
           }}>
             <div className="space-y-4">
-              <Input label="Hisse Kodu (örn: TUPRS)" name="ticker" required />
-              <Input label="Şirket Adı" name="name" required />
+              <Input 
+                label="Hisse Kodu (örn: TUPRS)" 
+                name="ticker" 
+                required 
+                value={newStockData.ticker}
+                onChange={async (e) => {
+                  const val = e.target.value.toUpperCase();
+                  setNewStockData(prev => ({ ...prev, ticker: val }));
+                  
+                  if (val.length >= 4) {
+                    try {
+                      const info = await fetchStockInfo(val, newStockData.exchange);
+                      if (info.success) {
+                        setNewStockData(prev => ({ 
+                          ...prev, 
+                          name: info.name, 
+                          sector: info.sector 
+                        }));
+                      }
+                    } catch (err) {
+                      console.error("Info fetch failed", err);
+                    }
+                  }
+                }}
+              />
+              <Input 
+                label="Şirket Adı" 
+                name="name" 
+                required 
+                value={newStockData.name}
+                onChange={(e) => setNewStockData(prev => ({ ...prev, name: e.target.value }))}
+              />
               <div className="grid grid-cols-2 gap-4">
-                <Select label="Borsa" name="exchange" options={['BIST', 'NYSE', 'NASDAQ', 'LSE']} />
-                <Select label="Sektör" name="sector" options={['Enerji', 'Banka', 'Sanayi', 'Teknoloji', 'Holding', 'Gıda', 'Diğer']} />
+                <Select 
+                  label="Borsa" 
+                  name="exchange" 
+                  value={newStockData.exchange}
+                  onChange={(e) => setNewStockData(prev => ({ ...prev, exchange: e.target.value }))}
+                  options={['BIST', 'NYSE', 'NASDAQ', 'LSE']} 
+                />
+                <Select 
+                  label="Sektör" 
+                  name="sector" 
+                  value={newStockData.sector}
+                  onChange={(e) => setNewStockData(prev => ({ ...prev, sector: e.target.value }))}
+                  options={['Enerji', 'Banka', 'Sanayi', 'Teknoloji', 'Holding', 'Gıda', 'Diğer']} 
+                />
               </div>
             </div>
           </Modal>
