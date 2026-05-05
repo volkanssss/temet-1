@@ -470,17 +470,33 @@ export default function Dashboard() {
       {/* Modals */}
       <AnimatePresence>
         {isAddingStock && (
-          <Modal title="Hisse Ekle" onClose={() => { setIsAddingStock(false); setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' }); }} onSave={async (data) => {
-             const ticker = data.ticker.toUpperCase();
-             await dbService.add('stocks', {
-               ticker,
-               name: data.name || ticker, // Ad boşsa kodu kullan
-               exchange: data.exchange || 'BIST',
-               sector: data.sector || 'Diğer'
-             });
-             setIsAddingStock(false);
-             setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
-          }}>
+          <Modal 
+            title="Hisse Ekle" 
+            onClose={() => { 
+              setIsAddingStock(false); 
+              setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' }); 
+            }} 
+            onSave={async () => {
+              if (!newStockData.ticker) {
+                showToast('Hisse kodu giriniz!', false);
+                return;
+              }
+              try {
+                const ticker = newStockData.ticker.toUpperCase();
+                await dbService.add('stocks', {
+                  ticker,
+                  name: newStockData.name || ticker,
+                  exchange: newStockData.exchange || 'BIST',
+                  sector: newStockData.sector || 'Diğer'
+                });
+                setIsAddingStock(false);
+                setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
+                showToast(`${ticker} portföye eklendi!`);
+              } catch (err: any) {
+                showToast(err.message || 'Hisse eklenemedi!', false);
+              }
+            }}
+          >
             <div className="space-y-4">
               <Input 
                 label="Hisse Kodu (örn: TUPRS)" 
@@ -672,7 +688,7 @@ function StatItem({ label, value, subText, trend, highlight }: { label: string, 
   );
 }
 
-function Modal({ title, children, onClose, onSave }: { title: string, children: React.ReactNode, onClose: () => void, onSave: (data: any) => void }) {
+function Modal({ title, children, onClose, onSave }: { title: string, children: React.ReactNode, onClose: () => void, onSave: (data?: any) => void }) {
   return (
     <div
       className="fixed inset-0 bg-[#141414]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
