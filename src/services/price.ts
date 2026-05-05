@@ -126,6 +126,17 @@ export async function fetchStockPricesBatch(
       signal: AbortSignal.timeout(15000),
     });
     if (res.ok) return await res.json();
+  } catch { /* ignore */ }
+
+  // Fallback: Try relative /api/prices (hits Vite middleware or Vercel serverless)
+  try {
+    const res = await fetch(`/api/prices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stocks }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) return await res.json();
   } catch { /* fallback */ }
 
   const results: { ticker: string, price: number | null }[] = [];

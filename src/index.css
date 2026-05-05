@@ -7,12 +7,28 @@
 }
 
 :root {
-  --bg: #E4E3E0;
-  --ink: #141414;
-  --line: #141414;
+  --bg: #0f172a;
+  --ink: #f8fafc;
+  --line: #1e293b;
 }
 
 body {
   background-color: var(--bg);
   color: var(--ink);
+}
+
+/* Custom Scrollbar for Dark Mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a; 
+}
+::-webkit-scrollbar-thumb {
+  background: #334155; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569; 
 }
