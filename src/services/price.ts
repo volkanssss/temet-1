@@ -128,12 +128,14 @@ export async function fetchStockPricesBatch(
     if (res.ok) return await res.json();
   } catch { /* fallback */ }
 
-  const results = await Promise.all(
-    stocks.map(async ({ ticker, exchange }) => ({
-      ticker,
-      price: await fetchFromYahoo(ticker, exchange),
-    }))
-  );
+  const results: { ticker: string, price: number | null }[] = [];
+  for (const { ticker, exchange } of stocks) {
+    const price = await fetchFromYahoo(ticker, exchange);
+    results.push({ ticker, price });
+    // allorigins rate limit'e takılmamak için 800ms bekle
+    await new Promise(resolve => setTimeout(resolve, 800));
+  }
+  
   return Object.fromEntries(results.map(({ ticker, price }) => [ticker, price]));
 }
 

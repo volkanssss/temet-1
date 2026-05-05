@@ -29,7 +29,9 @@ import {
   ResponsiveContainer, 
   Cell,
   PieChart as RePieChart,
-  Pie
+  Pie,
+  AreaChart,
+  Area
 } from 'recharts';
 
 type Tab = 'dash' | 'pf' | 'div' | 'an' | 'goal';
@@ -240,18 +242,162 @@ export default function Dashboard() {
         <div className="p-8 max-w-6xl mx-auto">
           {activeTab === 'dash' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              {/* Top Stats */}
-              <div className="grid grid-cols-4 border border-[#141414] divide-x divide-[#141414]">
-                <StatItem label="Toplam Değer" value={formatCurrency(summary.totalValue)} />
-                <StatItem label="Toplam Maliyet" value={formatCurrency(summary.totalCost)} />
-                <StatItem 
-                  label="Kar / Zarar" 
-                  value={formatCurrency(summary.pnl)} 
-                  subText={formatPercentage(summary.pnlPct)}
-                  trend={summary.pnl >= 0 ? 'up' : 'down'}
-                />
-                <StatItem label="Toplam Temettü" value={formatCurrency(summary.totalDiv)} highlight />
-              </div>
+              {/* Geçmiş K/Z Analizi & Grafikler */}
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const getSnapshot = (daysAgo: number) => {
+                  const targetDate = new Date(today);
+                  targetDate.setDate(today.getDate() - daysAgo);
+                  const pastSnaps = history.filter(h => new Date(h.date) <= targetDate).sort((a,b) => b.date.localeCompare(a.date));
+                  return pastSnaps.length > 0 ? pastSnaps[0] : null;
+                };
+
+                const calcPnl = (snap: PortfolioHistory | null) => {
+                  if (!snap) return null;
+                  const currentPnl = summary.totalValue - summary.totalCost;
+                  const pastPnl = snap.totalValue - snap.totalCost;
+                  const pnlChange = currentPnl - pastPnl;
+                  const pnlPct = snap.totalValue > 0 ? (pnlChange / snap.totalValue) * 100 : 0;
+                  return { val: pnlChange, pct: pnlPct };
+                };
+
+                const daily = calcPnl(getSnapshot(1));
+                const monthly = calcPnl(getSnapshot(30));
+                const yearly = calcPnl(getSnapshot(365));
+
+                const chartData = [...history].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(h => ({
+                  name: new Date(h.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
+                  'Portföy Değeri': h.totalValue,
+                  'Net Maliyet': h.totalCost
+                }));
+                if (summary.totalValue > 0) {
+                   chartData.push({
+                      name: 'Bugün',
+                      'Portföy Değeri': summary.totalValue,
+                      'Net Maliyet': summary.totalCost
+                   });
+                }
+
+                return (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="border border-[#141414] p-4 bg-white/50">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Günlük K/Z</div>
+                        {daily ? (
+                           <div className={cn("font-mono text-lg font-bold", daily.val >= 0 ? "text-green-700" : "text-red-700")}>
+                             {daily.val >= 0 ? '+' : ''}{formatCurrency(daily.val)}
+                             <div className="text-xs">{daily.val >= 0 ? '▲' : '▼'} {formatPercentage(daily.pct)}</div>
+                           </div>
+                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
+                      </div>
+                      <div className="border border-[#141414] p-4 bg-white/50">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Aylık K/Z</div>
+                        {monthly ? (
+                           <div className={cn("font-mono text-lg font-bold", monthly.val >= 0 ? "text-green-700" : "text-red-700")}>
+                             {monthly.val >= 0 ? '+' : ''}{formatCurrency(monthly.val)}
+                             <div className="text-xs">{monthly.val >= 0 ? '▲' : '▼'} {formatPercentage(monthly.pct)}</div>
+                           </div>
+                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
+                      </div>
+                      <div className="border border-[#141414] p-4 bg-white/50">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Yıllık K/Z</div>
+                        {yearly ? (
+                           <div className={cn("font-mono text-lg font-bold", yearly.val >= 0 ? "text-green-700" : "text-red-700")}>
+                             {yearly.val >= 0 ? '+' : ''}{formatCurrency(yearly.val)}
+                             <div className="text-xs">{yearly.val >= 0 ? '▲' : '▼'} {formatPercentage(yearly.pct)}</div>
+                           </div>
+                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
+                      </div>
+                      <div className="border border-[#141414] p-4 bg-[#141414] text-[#E4E3E0]">
+                        <div className="font-serif italic text-[10px] uppercase opacity-70 mb-1">Tüm Zamanlar K/Z</div>
+                        <div className={cn("font-mono text-lg font-bold", summary.pnl >= 0 ? "text-green-400" : "text-red-400")}>
+                          {summary.pnl >= 0 ? '+' : ''}{formatCurrency(summary.pnl)}
+                          <div className="text-xs">{summary.pnl >= 0 ? '▲' : '▼'} {formatPercentage(summary.pnlPct)}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {chartData.length > 0 && (
+                      <div className="border border-[#141414] p-6 bg-white/50 h-[300px]">
+                         <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-6">Portföy Büyüme Eğrisi</h3>
+                         <ResponsiveContainer width="100%" height="100%">
+                           <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                             <defs>
+                               <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
+                                 <stop offset="5%" stopColor="#141414" stopOpacity={0.3}/>
+                                 <stop offset="95%" stopColor="#141414" stopOpacity={0}/>
+                               </linearGradient>
+                               <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                                 <stop offset="5%" stopColor="#9CA3AF" stopOpacity={0.3}/>
+                                 <stop offset="95%" stopColor="#9CA3AF" stopOpacity={0}/>
+                               </linearGradient>
+                             </defs>
+                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} dy={10} />
+                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} tickFormatter={(val) => '₺' + (val/1000).toFixed(0) + 'k'} />
+                             <Tooltip 
+                                contentStyle={{ backgroundColor: '#141414', color: '#E4E3E0', border: 'none', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace' }}
+                                itemStyle={{ color: '#E4E3E0' }}
+                                formatter={(value: number) => formatCurrency(value)}
+                             />
+                             <Area type="monotone" dataKey="Net Maliyet" stroke="#9CA3AF" fillOpacity={1} fill="url(#colorCost)" />
+                             <Area type="monotone" dataKey="Portföy Değeri" stroke="#141414" strokeWidth={2} fillOpacity={1} fill="url(#colorVal)" />
+                           </AreaChart>
+                         </ResponsiveContainer>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Aylık Yatırım Geçmişi */}
+              {(() => {
+                if (purchases.length === 0) return null;
+                const grouped = purchases.reduce((acc, p) => {
+                  const month = p.date.substring(0, 7);
+                  if (!acc[month]) acc[month] = { total: 0, drip: 0 };
+                  const value = p.qty * p.price;
+                  acc[month].total += value;
+                  if ((p as any).isDrip) acc[month].drip += value;
+                  return acc;
+                }, {} as Record<string, { total: number, drip: number }>);
+                const sortedMonths = Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0])) as [string, { total: number, drip: number }][];
+
+                return (
+                  <div className="mb-8">
+                    <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Aylık Yatırım Geçmişi</h3>
+                    <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
+                      {sortedMonths.map(([month, data]) => {
+                        const net = data.total - data.drip;
+                        const monthDate = new Date(month + '-01');
+                        const monthName = monthDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+                        const isCurrentMonth = month === new Date().toISOString().substring(0, 7);
+                        return (
+                          <div key={month} className={`min-w-[280px] snap-start border border-[#141414] p-5 ${isCurrentMonth ? 'bg-[#141414] text-[#E4E3E0]' : 'bg-white/50'}`}>
+                            <div className={`font-serif italic text-xs uppercase tracking-widest opacity-60 mb-2 ${isCurrentMonth ? 'text-[#E4E3E0]' : ''}`}>
+                              {monthName} {isCurrentMonth && '(Mevcut)'}
+                            </div>
+                            <div className="font-mono text-2xl font-black mb-2">{formatCurrency(data.total)}</div>
+                            <div className={`text-[10px] font-mono grid grid-cols-2 gap-2 opacity-80 ${isCurrentMonth ? 'text-[#E4E3E0]' : ''}`}>
+                              <div>
+                                <div className="opacity-50">Net Yatırım</div>
+                                <div className={isCurrentMonth ? "text-green-400" : "text-green-700"}>{formatCurrency(net)}</div>
+                              </div>
+                              <div>
+                                <div className="opacity-50">DRIP (Temettü)</div>
+                                <div>{formatCurrency(data.drip)}</div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
 
               {/* Position Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -287,129 +433,7 @@ export default function Dashboard() {
                     Hisse Ekle
                   </button>
                 </div>
-                {/* Geçmiş K/Z Analizi */}
-                {(() => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
 
-                  const getSnapshot = (daysAgo: number) => {
-                    const targetDate = new Date(today);
-                    targetDate.setDate(today.getDate() - daysAgo);
-                    // O güne ait veya ondan önceki en yakın tarihi bul
-                    const pastSnaps = history.filter(h => new Date(h.date) <= targetDate).sort((a,b) => b.date.localeCompare(a.date));
-                    return pastSnaps.length > 0 ? pastSnaps[0] : null;
-                  };
-
-                  const calcPnl = (snap: PortfolioHistory | null) => {
-                    if (!snap) return null;
-                    // Eğer snapshot ile şu anki maliyet arasında büyük fark varsa (yeni para eklenmişse)
-                    // Gerçek getiri hesabı (TWR vb) çok karmaşıktır. 
-                    // Basitçe: (Şu anki değer - Şu anki Maliyet) - (Geçmiş Değer - Geçmiş Maliyet) = Dönemlik K/Z değişimi
-                    const currentPnl = summary.totalValue - summary.totalCost;
-                    const pastPnl = snap.totalValue - snap.totalCost;
-                    const pnlChange = currentPnl - pastPnl;
-                    // Yüzde değişimi (Geçmiş değere göre)
-                    const pnlPct = snap.totalValue > 0 ? (pnlChange / snap.totalValue) * 100 : 0;
-                    return { val: pnlChange, pct: pnlPct };
-                  };
-
-                  const daily = calcPnl(getSnapshot(1));
-                  const monthly = calcPnl(getSnapshot(30));
-                  const yearly = calcPnl(getSnapshot(365));
-
-                  return (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                      <div className="border border-[#141414] p-4 bg-white/50">
-                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Günlük K/Z</div>
-                        {daily ? (
-                           <div className={cn("font-mono text-lg font-bold", daily.val >= 0 ? "text-green-700" : "text-red-700")}>
-                             {daily.val >= 0 ? '+' : ''}{formatCurrency(daily.val)}
-                             <div className="text-xs">{daily.val >= 0 ? '▲' : '▼'} {formatPercentage(daily.pct)}</div>
-                           </div>
-                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
-                      </div>
-
-                      <div className="border border-[#141414] p-4 bg-white/50">
-                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Aylık K/Z</div>
-                        {monthly ? (
-                           <div className={cn("font-mono text-lg font-bold", monthly.val >= 0 ? "text-green-700" : "text-red-700")}>
-                             {monthly.val >= 0 ? '+' : ''}{formatCurrency(monthly.val)}
-                             <div className="text-xs">{monthly.val >= 0 ? '▲' : '▼'} {formatPercentage(monthly.pct)}</div>
-                           </div>
-                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
-                      </div>
-
-                      <div className="border border-[#141414] p-4 bg-white/50">
-                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Yıllık K/Z</div>
-                        {yearly ? (
-                           <div className={cn("font-mono text-lg font-bold", yearly.val >= 0 ? "text-green-700" : "text-red-700")}>
-                             {yearly.val >= 0 ? '+' : ''}{formatCurrency(yearly.val)}
-                             <div className="text-xs">{yearly.val >= 0 ? '▲' : '▼'} {formatPercentage(yearly.pct)}</div>
-                           </div>
-                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
-                      </div>
-
-                      <div className="border border-[#141414] p-4 bg-[#141414] text-[#E4E3E0]">
-                        <div className="font-serif italic text-[10px] uppercase opacity-70 mb-1">Tüm Zamanlar K/Z</div>
-                        <div className={cn("font-mono text-lg font-bold", summary.pnl >= 0 ? "text-green-400" : "text-red-400")}>
-                          {summary.pnl >= 0 ? '+' : ''}{formatCurrency(summary.pnl)}
-                          <div className="text-xs">{summary.pnl >= 0 ? '▲' : '▼'} {formatPercentage(summary.pnlPct)}</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-                {/* Aylık Yatırım Geçmişi */}
-                {(() => {
-                  if (purchases.length === 0) return null;
-
-                  // Alımları aylara göre grupla (YYYY-MM)
-                  const grouped = purchases.reduce((acc, p) => {
-                    const month = p.date.substring(0, 7);
-                    if (!acc[month]) acc[month] = { total: 0, drip: 0 };
-                    const value = p.qty * p.price;
-                    acc[month].total += value;
-                    if ((p as any).isDrip) {
-                      acc[month].drip += value;
-                    }
-                    return acc;
-                  }, {} as Record<string, { total: number, drip: number }>);
-
-                  const sortedMonths = Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0])) as [string, { total: number, drip: number }][];
-
-                  return (
-                    <div className="mb-8">
-                      <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Aylık Yatırım Geçmişi</h3>
-                      <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
-                        {sortedMonths.map(([month, data]) => {
-                          const net = data.total - data.drip;
-                          const monthDate = new Date(month + '-01');
-                          const monthName = monthDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
-                          const isCurrentMonth = month === new Date().toISOString().substring(0, 7);
-
-                          return (
-                            <div key={month} className={`min-w-[280px] snap-start border border-[#141414] p-5 ${isCurrentMonth ? 'bg-[#141414] text-[#E4E3E0]' : 'bg-white/50'}`}>
-                              <div className={`font-serif italic text-xs uppercase tracking-widest opacity-60 mb-2 ${isCurrentMonth ? 'text-[#E4E3E0]' : ''}`}>
-                                {monthName} {isCurrentMonth && '(Mevcut)'}
-                              </div>
-                              <div className="font-mono text-2xl font-black mb-2">{formatCurrency(data.total)}</div>
-                              <div className={`text-[10px] font-mono grid grid-cols-2 gap-2 opacity-80 ${isCurrentMonth ? 'text-[#E4E3E0]' : ''}`}>
-                                <div>
-                                  <div className="opacity-50">Net Yatırım</div>
-                                  <div className={isCurrentMonth ? "text-green-400" : "text-green-700"}>{formatCurrency(net)}</div>
-                                </div>
-                                <div>
-                                  <div className="opacity-50">DRIP (Temettü)</div>
-                                  <div>{formatCurrency(data.drip)}</div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
 
                 <div className="border border-[#141414]">
                   <table className="w-full border-collapse">
