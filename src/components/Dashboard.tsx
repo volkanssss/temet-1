@@ -471,11 +471,12 @@ export default function Dashboard() {
       <AnimatePresence>
         {isAddingStock && (
           <Modal title="Hisse Ekle" onClose={() => { setIsAddingStock(false); setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' }); }} onSave={async (data) => {
+             const ticker = data.ticker.toUpperCase();
              await dbService.add('stocks', {
-               ticker: data.ticker.toUpperCase(),
-               name: data.name,
-               exchange: data.exchange,
-               sector: data.sector
+               ticker,
+               name: data.name || ticker, // Ad boşsa kodu kullan
+               exchange: data.exchange || 'BIST',
+               sector: data.sector || 'Diğer'
              });
              setIsAddingStock(false);
              setNewStockData({ ticker: '', name: '', sector: 'Diğer', exchange: 'BIST' });
@@ -512,9 +513,8 @@ export default function Dashboard() {
                 }}
               />
               <Input 
-                label={infoLoading ? 'Şirket Adı (aranıyor...)' : 'Şirket Adı'} 
+                label={infoLoading ? 'Şirket Adı (aranıyor...)' : 'Şirket Adı (Otomatik dolar)'} 
                 name="name" 
-                required 
                 value={newStockData.name}
                 onChange={(e) => setNewStockData(prev => ({ ...prev, name: e.target.value }))}
               />
