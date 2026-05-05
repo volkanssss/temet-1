@@ -57,13 +57,25 @@ CREATE TABLE IF NOT EXISTS goals (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- PORTFOLIO HISTORY
+CREATE TABLE IF NOT EXISTS portfolio_history (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  date         DATE NOT NULL,
+  total_value  FLOAT NOT NULL CHECK (total_value >= 0),
+  total_cost   FLOAT NOT NULL CHECK (total_cost >= 0),
+  updated_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, date)
+);
+
 -- ============================================================
 -- RLS
 -- ============================================================
-ALTER TABLE stocks    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dividends ENABLE ROW LEVEL SECURITY;
-ALTER TABLE goals     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stocks            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchases         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dividends         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goals             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE portfolio_history ENABLE ROW LEVEL SECURITY;
 
 -- Stocks policies
 CREATE POLICY "stocks_select" ON stocks FOR SELECT USING (auth.uid() = user_id);
@@ -89,6 +101,12 @@ CREATE POLICY "goals_insert" ON goals FOR INSERT WITH CHECK (auth.uid() = user_i
 CREATE POLICY "goals_update" ON goals FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "goals_delete" ON goals FOR DELETE USING (auth.uid() = user_id);
 
+-- Portfolio History policies
+CREATE POLICY "history_select" ON portfolio_history FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "history_insert" ON portfolio_history FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "history_update" ON portfolio_history FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "history_delete" ON portfolio_history FOR DELETE USING (auth.uid() = user_id);
+
 -- ============================================================
 -- Enable Realtime (Supabase dashboard'da da açık olmalı)
 -- ============================================================
@@ -96,3 +114,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE stocks;
 ALTER PUBLICATION supabase_realtime ADD TABLE purchases;
 ALTER PUBLICATION supabase_realtime ADD TABLE dividends;
 ALTER PUBLICATION supabase_realtime ADD TABLE goals;
+ALTER PUBLICATION supabase_realtime ADD TABLE portfolio_history;

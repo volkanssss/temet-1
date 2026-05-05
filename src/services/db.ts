@@ -65,6 +65,19 @@ export const dbService = {
     if (error) throw error;
   },
 
+  /** Portfolio History için Upsert (Günde 1 kayıt) */
+  async upsertHistory(date: string, totalValue: number, totalCost: number): Promise<void> {
+    const userId = await getUserId();
+    const { error } = await supabase.from('portfolio_history').upsert({
+      user_id: userId,
+      date,
+      total_value: totalValue,
+      total_cost: totalCost,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,date' });
+    if (error) throw error;
+  },
+
   /**
    * Gerçek zamanlı abonelik.
    * İlk yüklemede veriyi çeker, sonra değişikliklerde tekrar çeker.

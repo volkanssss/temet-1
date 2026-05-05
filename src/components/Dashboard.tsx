@@ -18,7 +18,7 @@ import { supabase, logout } from '../lib/supabase';
 import { dbService } from '../services/db';
 import { fetchStockPricesBatch, fetchStockInfo } from '../services/price';
 import { cn, formatCurrency, formatPercentage } from '../lib/utils';
-import { StockHolding, Purchase, Dividend, Goal } from '../types/stock';
+import { StockHolding, Purchase, Dividend, Goal, PortfolioHistory } from '../types/stock';
 import {
   BarChart,
   Bar, 
@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [dividends, setDividends] = useState<Dividend[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [history, setHistory] = useState<PortfolioHistory[]>([]);
   
   const [isAddingStock, setIsAddingStock] = useState(false);
   const [isAddingPurchase, setIsAddingPurchase] = useState(false);
@@ -73,12 +74,14 @@ export default function Dashboard() {
     const unsubPurchases = dbService.subscribe('purchases', setPurchases);
     const unsubDividends = dbService.subscribe('dividends', setDividends);
     const unsubGoals = dbService.subscribe('goals', setGoals);
+    const unsubHistory = dbService.subscribe('portfolio_history', setHistory);
 
     return () => {
       unsubStocks();
       unsubPurchases();
       unsubDividends();
       unsubGoals();
+      unsubHistory();
     };
   }, []);
 
@@ -141,6 +144,15 @@ export default function Dashboard() {
           if (price != null) return dbService.update('stocks', s.id, { lastPrice: price });
         })
       );
+      
+      const newTotalValue = stocks.reduce((acc, s) => {
+         const price = priceMap[s.ticker] ?? s.lastPrice ?? 0;
+         const qty = purchases.filter(p => p.stockId === s.id).reduce((sum, p) => sum + p.qty, 0);
+         return acc + (qty * price);
+      }, 0);
+      const today = new Date().toISOString().split('T')[0];
+      await dbService.upsertHistory(today, newTotalValue, summary.totalCost);
+
       showToast(`${stocks.length} hisse güncellendi.`);
     } catch {
       showToast('Fiyat güncelleme başarısız.', false);
@@ -255,7 +267,78 @@ export default function Dashboard() {
                     Hisse Ekle
                   </button>
                 </div>
+                {/* Geçmiş K/Z Analizi */}
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
 
+                  const getSnapshot = (daysAgo: number) => {
+                    const targetDate = new Date(today);
+                    targetDate.setDate(today.getDate() - daysAgo);
+                    // O güne ait veya ondan önceki en yakın tarihi bul
+                    const pastSnaps = history.filter(h => new Date(h.date) <= targetDate).sort((a,b) => b.date.localeCompare(a.date));
+                    return pastSnaps.length > 0 ? pastSnaps[0] : null;
+                  };
+
+                  const calcPnl = (snap: PortfolioHistory | null) => {
+                    if (!snap) return null;
+                    // Eğer snapshot ile şu anki maliyet arasında büyük fark varsa (yeni para eklenmişse)
+                    // Gerçek getiri hesabı (TWR vb) çok karmaşıktır. 
+                    // Basitçe: (Şu anki değer - Şu anki Maliyet) - (Geçmiş Değer - Geçmiş Maliyet) = Dönemlik K/Z değişimi
+                    const currentPnl = summary.totalValue - summary.totalCost;
+                    const pastPnl = snap.totalValue - snap.totalCost;
+                    const pnlChange = currentPnl - pastPnl;
+                    // Yüzde değişimi (Geçmiş değere göre)
+                    const pnlPct = snap.totalValue > 0 ? (pnlChange / snap.totalValue) * 100 : 0;
+                    return { val: pnlChange, pct: pnlPct };
+                  };
+
+                  const daily = calcPnl(getSnapshot(1));
+                  const monthly = calcPnl(getSnapshot(30));
+                  const yearly = calcPnl(getSnapshot(365));
+
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                      <div className="border border-[#141414] p-4 bg-white/50">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Günlük K/Z</div>
+                        {daily ? (
+                           <div className={cn("font-mono text-lg font-bold", daily.val >= 0 ? "text-green-700" : "text-red-700")}>
+                             {daily.val >= 0 ? '+' : ''}{formatCurrency(daily.val)}
+                             <div className="text-xs">{daily.val >= 0 ? '▲' : '▼'} {formatPercentage(daily.pct)}</div>
+                           </div>
+                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
+                      </div>
+
+                      <div className="border border-[#141414] p-4 bg-white/50">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Aylık K/Z</div>
+                        {monthly ? (
+                           <div className={cn("font-mono text-lg font-bold", monthly.val >= 0 ? "text-green-700" : "text-red-700")}>
+                             {monthly.val >= 0 ? '+' : ''}{formatCurrency(monthly.val)}
+                             <div className="text-xs">{monthly.val >= 0 ? '▲' : '▼'} {formatPercentage(monthly.pct)}</div>
+                           </div>
+                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
+                      </div>
+
+                      <div className="border border-[#141414] p-4 bg-white/50">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Yıllık K/Z</div>
+                        {yearly ? (
+                           <div className={cn("font-mono text-lg font-bold", yearly.val >= 0 ? "text-green-700" : "text-red-700")}>
+                             {yearly.val >= 0 ? '+' : ''}{formatCurrency(yearly.val)}
+                             <div className="text-xs">{yearly.val >= 0 ? '▲' : '▼'} {formatPercentage(yearly.pct)}</div>
+                           </div>
+                        ) : <div className="font-mono text-sm opacity-30 mt-2">Veri Bekleniyor</div>}
+                      </div>
+
+                      <div className="border border-[#141414] p-4 bg-[#141414] text-[#E4E3E0]">
+                        <div className="font-serif italic text-[10px] uppercase opacity-70 mb-1">Tüm Zamanlar K/Z</div>
+                        <div className={cn("font-mono text-lg font-bold", summary.pnl >= 0 ? "text-green-400" : "text-red-400")}>
+                          {summary.pnl >= 0 ? '+' : ''}{formatCurrency(summary.pnl)}
+                          <div className="text-xs">{summary.pnl >= 0 ? '▲' : '▼'} {formatPercentage(summary.pnlPct)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* Aylık Yatırım Geçmişi */}
                 {(() => {
                   if (purchases.length === 0) return null;

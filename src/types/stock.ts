@@ -50,3 +50,10 @@ export interface PortfolioSummary {
   profitLossPercentage: number;
   totalDividends: number;
 }
+
+export interface PortfolioHistory {
+  id: string;
+  date: string;
+  totalValue: number;
+  totalCost: number;
+}
