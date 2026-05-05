@@ -255,6 +255,31 @@ export default function Dashboard() {
                   </button>
                 </div>
 
+                {/* Aylık Alım Özeti */}
+                {(() => {
+                  const thisMonth = new Date().toISOString().slice(0, 7);
+                  const monthPurchases = purchases.filter(p => p.date.startsWith(thisMonth));
+                  const totalInvestedThisMonth = monthPurchases.reduce((acc, p) => acc + (p.qty * p.price), 0);
+                  const dripInvestedThisMonth = monthPurchases.filter(p => (p as any).isDrip).reduce((acc, p) => acc + (p.qty * p.price), 0);
+                  const netInvestedThisMonth = totalInvestedThisMonth - dripInvestedThisMonth;
+
+                  if (totalInvestedThisMonth === 0) return null;
+
+                  return (
+                    <div className="border border-[#141414] p-6 flex justify-between items-center mb-4 bg-white/50">
+                      <div>
+                        <div className="font-serif italic text-[10px] uppercase tracking-widest opacity-60 mb-1">Bu Ayki Toplam Yatırım ({new Date().toLocaleString('tr-TR', { month: 'long' })})</div>
+                        <div className="font-mono text-2xl font-black">{formatCurrency(totalInvestedThisMonth)}</div>
+                        {dripInvestedThisMonth > 0 && (
+                          <div className="text-[10px] font-mono mt-1 text-green-700 opacity-80">
+                            (Bunun {formatCurrency(dripInvestedThisMonth)}'si DRIP / Temettü geri alımıdır. Net yatırılan: {formatCurrency(netInvestedThisMonth)})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="border border-[#141414]">
                   <table className="w-full border-collapse">
                     <thead>
@@ -306,8 +331,93 @@ export default function Dashboard() {
           )}
 
           {activeTab === 'div' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <div className="flex justify-between items-center mb-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+              
+              {/* Özet Kartlar */}
+              {(() => {
+                const thisYear = new Date().getFullYear().toString();
+                const yearDivs = dividends.filter(d => d.date.startsWith(thisYear));
+                const yearTotal = yearDivs.reduce((a, d) => a + d.net, 0);
+                const monthsWithData = new Set(yearDivs.map(d => d.date.slice(0,7))).size || 1;
+                const monthlyAvg = yearTotal / (new Date().getMonth() + 1);
+                const allTimeTotal = dividends.reduce((a, d) => a + d.net, 0);
+                const dripDivs = dividends.filter(d => (d as any).isDrip);
+                const dripTotal = dripDivs.reduce((a, d) => a + d.net, 0);
+
+                // Hisse başına temettü
+                const byStock = dividends.reduce((acc, d) => {
+                  acc[d.ticker] = (acc[d.ticker] || 0) + d.net;
+                  return acc;
+                }, {} as Record<string, number>);
+
+                // Aya göre gruplama
+                const byMonth = dividends
+                  .filter(d => d.date.startsWith(thisYear))
+                  .reduce((acc, d) => {
+                    const m = d.date.slice(0, 7);
+                    acc[m] = (acc[m] || 0) + d.net;
+                    return acc;
+                  }, {} as Record<string, number>);
+
+                return (
+                  <>
+                    {/* Özet Satırı */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 border border-[#141414] divide-x divide-[#141414]">
+                      <div className="p-6">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">{thisYear} Toplam</div>
+                        <div className="font-mono text-xl font-black">{formatCurrency(yearTotal)}</div>
+                      </div>
+                      <div className="p-6">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Aylık Ort.</div>
+                        <div className="font-mono text-xl font-black">{formatCurrency(monthlyAvg)}</div>
+                      </div>
+                      <div className="p-6">
+                        <div className="font-serif italic text-[10px] uppercase opacity-50 mb-1">Tüm Zaman</div>
+                        <div className="font-mono text-xl font-black">{formatCurrency(allTimeTotal)}</div>
+                      </div>
+                      <div className="p-6 bg-[#141414] text-[#E4E3E0]">
+                        <div className="font-serif italic text-[10px] uppercase opacity-70 mb-1">DRIP Geri Alım</div>
+                        <div className="font-mono text-xl font-black">{formatCurrency(dripTotal)}</div>
+                      </div>
+                    </div>
+
+                    {/* Aylık Dağılım ({thisYear}) */}
+                    {Object.keys(byMonth).length > 0 && (
+                      <div>
+                        <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">{thisYear} — Aylık Dağılım</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {Object.entries(byMonth).sort().map(([month, total]) => (
+                            <div key={month} className="border border-[#141414] p-4">
+                              <div className="font-serif italic text-[10px] opacity-50 mb-1">
+                                {new Date(month + '-01').toLocaleString('tr-TR', { month: 'long' })}
+                              </div>
+                              <div className="font-mono font-bold">{formatCurrency(total as number)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hisse Başına Toplam */}
+                    {Object.keys(byStock).length > 0 && (
+                      <div>
+                        <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] mb-4 border-b border-[#141414] pb-2">Hisse Başına Temettü</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {Object.entries(byStock).sort((a,b) => (b[1] as number)-(a[1] as number)).map(([ticker, total]) => (
+                            <div key={ticker} className="border border-[#141414] p-4 flex justify-between items-center">
+                              <div className="font-mono font-bold text-sm">{ticker}</div>
+                              <div className="font-mono text-green-700">{formatCurrency(total as number)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Liste Başlığı + Ekle Butonu */}
+              <div className="flex justify-between items-center">
                 <h2 className="font-serif italic text-2xl uppercase tracking-tighter opacity-70">Geçmiş Ödemeler</h2>
                 <button 
                   onClick={() => setIsAddingDividend(true)}
@@ -323,7 +433,10 @@ export default function Dashboard() {
                      <div className="flex items-center gap-6">
                         <div className="w-12 h-12 border border-[#141414] flex items-center justify-center font-mono font-black text-xl bg-[#141414] text-white">{d.ticker.slice(0,1)}</div>
                         <div>
-                          <div className="font-mono text-lg font-bold">{d.ticker}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-mono text-lg font-bold">{d.ticker}</div>
+                            {(d as any).isDrip && <span className="text-[9px] font-mono uppercase bg-green-100 text-green-800 px-2 py-0.5 border border-green-300">DRIP</span>}
+                          </div>
                           <div className="font-serif italic text-xs opacity-50">{d.date} &bull; {d.qty} LOT &bull; ₺{d.ps}/HİSSE</div>
                         </div>
                      </div>
@@ -337,6 +450,7 @@ export default function Dashboard() {
               </div>
             </motion.div>
           )}
+
 
           {activeTab === 'an' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-12">
@@ -561,7 +675,8 @@ export default function Dashboard() {
                qty: Number(data.qty),
                price: Number(data.price),
                date: data.date,
-               note: data.note
+               note: data.note,
+               isDrip: data.isDrip === 'on'
              });
              setIsAddingPurchase(false);
           }}>
@@ -572,6 +687,10 @@ export default function Dashboard() {
                  <Input label="Birim Fiyat (₺)" name="price" type="number" step="0.01" required />
                </div>
                <Input label="Not" name="note" />
+               <div className="flex items-center gap-2 pt-2">
+                 <input type="checkbox" id="isDrip" name="isDrip" className="w-4 h-4 accent-[#141414]" />
+                 <label htmlFor="isDrip" className="font-serif italic text-sm opacity-80 cursor-pointer">Bu alım temettü geliriyle yapıldı (DRIP)</label>
+               </div>
             </div>
           </Modal>
         )}
@@ -736,3 +855,5 @@ function Select({ label, options, ...props }: { label: string, options: (string 
     </div>
   );
 }
+
+

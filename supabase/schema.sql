@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS purchases (
   qty        FLOAT NOT NULL CHECK (qty > 0),
   price      FLOAT NOT NULL CHECK (price >= 0),
   note       TEXT,
+  is_drip    BOOLEAN DEFAULT FALSE,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

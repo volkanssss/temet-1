@@ -15,6 +15,13 @@ export const BIST_STOCKS: Record<string, { name: string; sector: string }> = {
   SMRTG: { name: 'Smart Güneş Enerjisi', sector: 'Enerji' },
   YEOTK: { name: 'Yeo Teknoloji', sector: 'Enerji' },
   EUPWR: { name: 'Europower Enerji', sector: 'Enerji' },
+  NTGAZ: { name: 'Naturelgaz Sanayi', sector: 'Enerji' },
+  
+  // Havacılık / Hizmet
+  CLEBI: { name: 'Çelebi Hava Servisi', sector: 'Hizmet' },
+  
+  // GYO
+  TRGYO: { name: 'Türkiye Reit GYO', sector: 'GYO' },
   
   // Banka
   AKBNK: { name: 'Akbank', sector: 'Banka' },

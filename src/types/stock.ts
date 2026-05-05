@@ -18,6 +18,7 @@ export interface Purchase {
   qty: number;
   price: number;
   note?: string;
+  isDrip?: boolean;
 }
 
 export interface Dividend {
