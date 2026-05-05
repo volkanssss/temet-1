@@ -574,7 +574,17 @@ export default function Dashboard() {
                             <td className="px-6 py-4 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                               <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-slate-700" title="Alım Ekle"><Plus size={14}/></button>
                               <button onClick={() => setViewingPurchases(s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-blue-400 hover:bg-slate-700" title="Alımları Yönet"><Edit2 size={14}/></button>
-                              <button onClick={() => dbService.remove('stocks', s.id)} className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-red-400 hover:bg-slate-700" title="Sil"><Trash2 size={14}/></button>
+                              <button 
+                                onClick={() => {
+                                  if (window.confirm(`${s.ticker} portföyünüzden silinecektir. Emin misiniz?`)) {
+                                    dbService.remove('stocks', s.id);
+                                  }
+                                }} 
+                                className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-red-400 hover:bg-slate-700" 
+                                title="Sil"
+                              >
+                                <Trash2 size={14}/>
+                              </button>
                             </td>
                           </tr>
                         );
@@ -594,16 +604,29 @@ export default function Dashboard() {
                         className="bg-slate-900/50 rounded-2xl border border-slate-800 p-4 space-y-4 active:scale-[0.98] transition-transform"
                       >
                         <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-bold text-lg text-slate-100">{s.ticker}</div>
-                            <div className="text-xs text-slate-500">{s.name}</div>
+                          <div className="flex gap-3">
+                            <div>
+                              <div className="font-bold text-lg text-slate-100">{s.ticker}</div>
+                              <div className="text-xs text-slate-500">{s.name}</div>
+                            </div>
+                            <div className={cn(
+                              "px-2 py-1 rounded-md text-xs font-medium h-fit mt-1",
+                              (stats?.profitLoss || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                            )}>
+                              {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
+                            </div>
                           </div>
-                          <div className={cn(
-                            "px-2 py-1 rounded-md text-xs font-medium",
-                            (stats?.profitLoss || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                          )}>
-                            {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
-                          </div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`${s.ticker} portföyünüzden silinecektir. Emin misiniz?`)) {
+                                dbService.remove('stocks', s.id);
+                              }
+                            }}
+                            className="p-2 -mt-1 -mr-1 text-slate-600 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -989,7 +1012,11 @@ export default function Dashboard() {
                     ALIM EKLE
                   </button>
                   <button 
-                    onClick={() => dbService.remove('stocks', s.id).then(() => setViewingStockDetails(null))}
+                    onClick={() => {
+                      if (window.confirm(`${s.ticker} portföyünüzden silinecektir. Emin misiniz?`)) {
+                        dbService.remove('stocks', s.id).then(() => setViewingStockDetails(null));
+                      }
+                    }}
                     className="p-3 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
                   >
                     <Trash2 size={18} />
