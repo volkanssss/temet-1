@@ -1,75 +1,82 @@
-// Yaygın BIST hisseleri için yerel veritabanı (anında auto-fill)
+// Kapsamlı BIST hisse ve sektör listesi (Anında auto-fill için)
 export const BIST_STOCKS: Record<string, { name: string; sector: string }> = {
+  // Enerji
   TUPRS: { name: 'Tüpraş', sector: 'Enerji' },
-  THYAO: { name: 'Türk Hava Yolları', sector: 'Ulaşım' },
-  SASA: { name: 'SASA Polyester', sector: 'Sanayi' },
-  EREGL: { name: 'Ereğli Demir ve Çelik', sector: 'Sanayi' },
-  BIMAS: { name: 'BİM Birleşik Mağazalar', sector: 'Perakende' },
+  AYDEM: { name: 'Aydem Enerji', sector: 'Enerji' },
+  AKSEN: { name: 'Aksa Enerji', sector: 'Enerji' },
+  ENJSA: { name: 'Enerjisa Enerji', sector: 'Enerji' },
+  ODAS: { name: 'Odaş Elektrik', sector: 'Enerji' },
+  ZOREN: { name: 'Zorlu Enerji', sector: 'Enerji' },
+  GALATA: { name: 'Galata Wind Enerji', sector: 'Enerji' },
+  BIOEN: { name: 'Biotrend Enerji', sector: 'Enerji' },
+  CWENE: { name: 'CW Enerji', sector: 'Enerji' },
+  ASTOR: { name: 'Astor Enerji', sector: 'Enerji' },
+  ALFAS: { name: 'Alfa Solar Enerji', sector: 'Enerji' },
+  SMRTG: { name: 'Smart Güneş Enerjisi', sector: 'Enerji' },
+  YEOTK: { name: 'Yeo Teknoloji', sector: 'Enerji' },
+  EUPWR: { name: 'Europower Enerji', sector: 'Enerji' },
+  
+  // Banka
   AKBNK: { name: 'Akbank', sector: 'Banka' },
   GARAN: { name: 'Garanti BBVA', sector: 'Banka' },
-  ISCTR: { name: 'İş Bankası', sector: 'Banka' },
-  KCHOL: { name: 'Koç Holding', sector: 'Holding' },
-  SAHOL: { name: 'Sabancı Holding', sector: 'Holding' },
-  YKBNK: { name: 'Yapı ve Kredi Bankası', sector: 'Banka' },
+  ISCTR: { name: 'İş Bankası (C)', sector: 'Banka' },
+  YKBNK: { name: 'Yapı Kredi Bankası', sector: 'Banka' },
   HALKB: { name: 'Halkbank', sector: 'Banka' },
   VAKBN: { name: 'VakıfBank', sector: 'Banka' },
-  ASELS: { name: 'Aselsan', sector: 'Savunma' },
-  TOASO: { name: 'Tofaş Türk Otomobil Fabrikası', sector: 'Otomotiv' },
-  FROTO: { name: 'Ford Otosan', sector: 'Otomotiv' },
-  PETKM: { name: 'Petkim', sector: 'Kimya' },
-  EKGYO: { name: 'Emlak Konut GYO', sector: 'GYO' },
-  TAVHL: { name: 'TAV Havalimanları', sector: 'Ulaşım' },
-  TURSG: { name: 'Türkiye Sigorta', sector: 'Sigorta' },
-  PGSUS: { name: 'Pegasus Hava Taşımacılığı', sector: 'Ulaşım' },
+  TSKB: { name: 'TSKB', sector: 'Banka' },
+  SKBNK: { name: 'Şekerbank', sector: 'Banka' },
+  ALBRK: { name: 'Albaraka Türk', sector: 'Banka' },
+  QNBFB: { name: 'QNB Finansbank', sector: 'Banka' },
+
+  // Sanayi / Otomotiv / Demir Çelik
+  EREGL: { name: 'Ereğli Demir Çelik', sector: 'Sanayi' },
+  KRDMD: { name: 'Kardemir (D)', sector: 'Sanayi' },
+  SASA: { name: 'SASA Polyester', sector: 'Sanayi' },
   SISE: { name: 'Şişecam', sector: 'Sanayi' },
-  ARCLK: { name: 'Arçelik', sector: 'Teknoloji' },
-  VESTL: { name: 'Vestel Elektronik', sector: 'Teknoloji' },
-  MGROS: { name: 'Migros Ticaret', sector: 'Perakende' },
+  HEKTS: { name: 'Hektaş', sector: 'Tarım' },
+  FROTO: { name: 'Ford Otosan', sector: 'Otomotiv' },
+  TOASO: { name: 'Tofaş Otomobil', sector: 'Otomotiv' },
+  DOAS: { name: 'Doğuş Otomotiv', sector: 'Otomotiv' },
+  ARCLK: { name: 'Arçelik', sector: 'Sanayi' },
+  VESTL: { name: 'Vestel', sector: 'Sanayi' },
+  ASELS: { name: 'Aselsan', sector: 'Savunma' },
+  OTKAR: { name: 'Otokar', sector: 'Otomotiv' },
+  EGEEN: { name: 'Ege Endüstri', sector: 'Sanayi' },
+  KONTR: { name: 'Kontrolmatik Teknoloji', sector: 'Teknoloji' },
+
+  // Perakende / Gıda
+  BIMAS: { name: 'BİM Mağazalar', sector: 'Perakende' },
+  MGROS: { name: 'Migros', sector: 'Perakende' },
+  SOKM: { name: 'Şok Marketler', sector: 'Perakende' },
+  AEFES: { name: 'Anadolu Efes', sector: 'Gıda' },
+  CCOLA: { name: 'Coca-Cola İçecek', sector: 'Gıda' },
+  ULKER: { name: 'Ülker Bisküvi', sector: 'Gıda' },
+  TATGD: { name: 'Tat Gıda', sector: 'Gıda' },
+  BRYAT: { name: 'Borusan Yatırım', sector: 'Holding' },
+
+  // Holding
+  KCHOL: { name: 'Koç Holding', sector: 'Holding' },
+  SAHOL: { name: 'Sabancı Holding', sector: 'Holding' },
+  ALARK: { name: 'Alarko Holding', sector: 'Holding' },
+  DOHOL: { name: 'Doğan Holding', sector: 'Holding' },
+  AGHOL: { name: 'Anadolu Grubu Holding', sector: 'Holding' },
+  TKFEN: { name: 'Tekfen Holding', sector: 'Holding' },
+  GUBRF: { name: 'Gübre Fabrikaları', sector: 'Kimya' },
+
+  // Ulaşım
+  THYAO: { name: 'Türk Hava Yolları', sector: 'Ulaşım' },
+  PGSUS: { name: 'Pegasus', sector: 'Ulaşım' },
+  TAVHL: { name: 'TAV Havalimanları', sector: 'Ulaşım' },
+
+  // İletişim / Teknoloji
   TCELL: { name: 'Turkcell', sector: 'Teknoloji' },
   TTKOM: { name: 'Türk Telekom', sector: 'Teknoloji' },
-  ENKAI: { name: 'Enka İnşaat', sector: 'İnşaat' },
-  OYAKC: { name: 'Oyak Çimento', sector: 'İnşaat' },
-  KOZAL: { name: 'Koza Altın İşletmeleri', sector: 'Madencilik' },
-  KOZAA: { name: 'Koza Anadolu Metal Madencilik', sector: 'Madencilik' },
-  DOHOL: { name: 'Doğan Holding', sector: 'Holding' },
-  SOKM: { name: 'Şok Marketler', sector: 'Perakende' },
-  ODAS: { name: 'Odaş Elektrik', sector: 'Enerji' },
-  CIMSA: { name: 'Çimsa', sector: 'İnşaat' },
-  AKCNS: { name: 'Akçansa', sector: 'İnşaat' },
-  BRISA: { name: 'Brisa', sector: 'Sanayi' },
-  AEFES: { name: 'Anadolu Efes', sector: 'Gıda' },
-  ULKER: { name: 'Ülker Bisküvi', sector: 'Gıda' },
-  KRDMD: { name: 'Kardemir', sector: 'Sanayi' },
-  DOAS: { name: 'Doğuş Otomotiv', sector: 'Otomotiv' },
-  EGEEN: { name: 'Ege Endüstri', sector: 'Sanayi' },
-  ALARK: { name: 'Alarko Holding', sector: 'Holding' },
-  Logo: { name: 'Logo Yazılım', sector: 'Teknoloji' },
-  NETAS: { name: 'Netaş Telekomünikasyon', sector: 'Teknoloji' },
-  ISDMR: { name: 'İskenderun Demir ve Çelik', sector: 'Sanayi' },
-  ZOREN: { name: 'Zorlu Enerji', sector: 'Enerji' },
-  GESAN: { name: 'Gensan Enerji', sector: 'Enerji' },
-  MPARK: { name: 'MLP Sağlık', sector: 'Sağlık' },
-  BIOEN: { name: 'Biotrend Çevre ve Enerji', sector: 'Enerji' },
-  AGHOL: { name: 'AG Anadolu Grubu Holding', sector: 'Holding' },
-  BANVT: { name: 'Banvit', sector: 'Gıda' },
-  CCOLA: { name: 'Coca-Cola İçecek', sector: 'Gıda' },
-  TKFEN: { name: 'Tekfen Holding', sector: 'Holding' },
-  TSKB: { name: 'Türkiye Sınai Kalkınma Bankası', sector: 'Banka' },
-  KLNMA: { name: 'Türkiye Kalkınma Bankası', sector: 'Banka' },
-  ENJSA: { name: 'Enerjisa Enerji', sector: 'Enerji' },
-  EUPWR: { name: 'Avrupa Yatırım Holding', sector: 'Holding' },
-  ISGYO: { name: 'İş GYO', sector: 'GYO' },
-  TATGD: { name: 'Tat Gıda', sector: 'Gıda' },
-  TRGYO: { name: 'Torunlar GYO', sector: 'GYO' },
-  MAVI: { name: 'Mavi Giyim', sector: 'Perakende' },
-  GUBRF: { name: 'Gübre Fabrikaları', sector: 'Kimya' },
-  KTLEV: { name: 'Katlev', sector: 'Finans' },
+  MIATK: { name: 'Mia Teknoloji', sector: 'Teknoloji' },
+  REEDR: { name: 'Reeder Teknoloji', sector: 'Teknoloji' },
+  SNGYO: { name: 'Sinpaş GYO', sector: 'GYO' },
+  EKGYO: { name: 'Emlak Konut GYO', sector: 'GYO' },
 };
 
-/**
- * Hisse fiyatlarını çeker.
- * Öncelik: Python sunucusu → Yahoo Finance CORS proxy
- */
 const API_BASE = import.meta.env.VITE_PRICE_API_URL || '/api';
 
 async function fetchFromYahoo(ticker: string, exchange: string): Promise<number | null> {
@@ -126,14 +133,17 @@ export async function fetchStockInfo(
   ticker: string,
   exchange: string = 'BIST'
 ): Promise<{ name: string; sector: string; success: boolean }> {
+  const symbol = ticker.toUpperCase();
+  
   // 1. Yerel BIST listesinden anında bul
-  const local = BIST_STOCKS[ticker.toUpperCase()];
-  if (local) return { ...local, success: true };
+  if (BIST_STOCKS[symbol]) {
+    return { ...BIST_STOCKS[symbol], success: true };
+  }
 
   // 2. Python sunucusu varsa kullan
   try {
     const res = await fetch(`${API_BASE}/info/${ticker}?exchange=${exchange}`, {
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {
       const data = await res.json();
@@ -143,22 +153,22 @@ export async function fetchStockInfo(
 
   // 3. Yahoo Finance Search API
   try {
-    const symbol = exchange === 'BIST' ? `${ticker}.IS` : ticker;
-    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${symbol}&quotesCount=1`;
+    const yahooSymbol = exchange === 'BIST' ? `${symbol}.IS` : symbol;
+    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${yahooSymbol}&quotesCount=1`;
     const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(proxy, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
       const quote = data?.quotes?.[0];
       if (quote) {
         return {
-          name: quote.longname || quote.shortname || ticker.toUpperCase(),
+          name: quote.longname || quote.shortname || symbol,
           sector: quote.industry || 'Diğer',
           success: true,
         };
       }
     }
-  } catch { /* hiçbiri çalışmadı */ }
+  } catch { /* fallback */ }
 
   return { name: '', sector: 'Diğer', success: false };
 }

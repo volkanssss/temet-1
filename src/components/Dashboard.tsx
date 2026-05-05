@@ -484,13 +484,15 @@ export default function Dashboard() {
               <Input 
                 label="Hisse Kodu (örn: TUPRS)" 
                 name="ticker" 
+                placeholder="Kodu yazın..."
                 required 
+                autoFocus
                 value={newStockData.ticker}
                 onChange={async (e) => {
                   const val = e.target.value.toUpperCase();
                   setNewStockData(prev => ({ ...prev, ticker: val }));
                   
-                  if (val.length >= 3) {
+                  if (val.length >= 2) {
                     setInfoLoading(true);
                     try {
                       const info = await fetchStockInfo(val, newStockData.exchange);
