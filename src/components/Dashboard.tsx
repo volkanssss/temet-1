@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase, logout } from '../lib/supabase';
 import { dbService } from '../services/db';
 import { fetchStockPricesBatch, fetchStockInfo } from '../services/price';
-import { cn, formatCurrency, formatPercentage } from '../lib/utils';
+import { cn, formatCurrency, formatPercentage, formatCount } from '../lib/utils';
 import { StockHolding, Purchase, Dividend, Goal, PortfolioHistory } from '../types/stock';
 import {
   BarChart,
@@ -139,11 +139,11 @@ export default function Dashboard() {
     };
   }, [stockStats, dividends]);
 
-  const refreshPrices = async () => {
+  const refreshPrices = useCallback(async () => {
     if (!stocks.length) return;
     setLoading(true);
     try {
-      // Toplu paralel çekme (Bug #1 fix)
+      // Toplu paralel çekme
       const priceMap = await fetchStockPricesBatch(
         stocks.map(s => ({ ticker: s.ticker, exchange: s.exchange }))
       );
@@ -153,14 +153,16 @@ export default function Dashboard() {
           if (price != null) return dbService.update('stocks', s.id, { lastPrice: price });
         })
       );
-      
+
+      // Portföy geçmişini kaydet (anlık purchases'tan hesapla)
       const newTotalValue = stocks.reduce((acc, s) => {
-         const price = priceMap[s.ticker] ?? s.lastPrice ?? 0;
-         const qty = purchases.filter(p => p.stockId === s.id).reduce((sum, p) => sum + p.qty, 0);
-         return acc + (qty * price);
+        const price = priceMap[s.ticker] ?? s.lastPrice ?? 0;
+        const qty = purchases.filter(p => p.stockId === s.id).reduce((sum, p) => sum + p.qty, 0);
+        return acc + (qty * price);
       }, 0);
+      const newTotalCost = purchases.reduce((acc, p) => acc + p.qty * p.price, 0);
       const today = new Date().toISOString().split('T')[0];
-      await dbService.upsertHistory(today, newTotalValue, summary.totalCost);
+      await dbService.upsertHistory(today, newTotalValue, newTotalCost);
 
       showToast(`${stocks.length} hisse güncellendi.`);
     } catch {
@@ -168,27 +170,29 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [stocks, purchases, showToast]);
 
-  // Otomatik 15 dakikada bir güncelle (Borsa saatleri: Hafta içi 09:55 - 18:15 arası TR saati)
+  // Otomatik 15 dakikada bir güncelle (Borsa saatleri: Hafta içi 09:55 - 18:15 arası TR saati UTC+3)
   useEffect(() => {
     const interval = setInterval(() => {
+      // UTC+3 (Türkiye saati) hesapla — browser timezone'undan bağımsız
       const now = new Date();
-      const day = now.getDay(); // 0: Pazar, 6: Cumartesi
-      const hour = now.getHours();
-      const min = now.getMinutes();
-      
-      // Hafta içi ve (saat 10-18 arası veya 09:55 sonrası)
+      const trTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+      const day = trTime.getUTCDay();
+      const hour = trTime.getUTCHours();
+      const min = trTime.getUTCMinutes();
+
       const isWeekday = day >= 1 && day <= 5;
-      const isMarketOpen = isWeekday && ((hour > 9 || (hour === 9 && min >= 55)) && (hour < 18 || (hour === 18 && min <= 15)));
-      
+      const isMarketOpen = isWeekday &&
+        ((hour > 9 || (hour === 9 && min >= 55)) && (hour < 18 || (hour === 18 && min <= 15)));
+
       if (isMarketOpen && stocks.length > 0) {
         refreshPrices();
       }
-    }, 15 * 60 * 1000); // 15 dakika
-    
+    }, 15 * 60 * 1000);
+
     return () => clearInterval(interval);
-  }, [stocks.length]);
+  }, [stocks.length, refreshPrices]);
 
   // Sayfa yüklendiğinde otomatik ilk veri çekimi
   useEffect(() => {
@@ -196,7 +200,7 @@ export default function Dashboard() {
       refreshPrices();
       setInitialFetchDone(true);
     }
-  }, [stocks.length, initialFetchDone]);
+  }, [stocks.length, initialFetchDone, refreshPrices]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-slate-700 selection:text-white">
@@ -360,40 +364,51 @@ export default function Dashboard() {
 
 
 
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
-                         <div className="flex justify-between items-start mb-3">
-                           <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700"><Download size={14} className="text-slate-300"/></div>
-                           <div className="text-emerald-400 text-sm font-medium">%{formatPercentage(summary.totalCost > 0 ? (summary.totalDiv / summary.totalCost)*100 : 0)}</div>
-                         </div>
-                         <div className="text-xl font-bold text-white mb-1">{formatCurrency(summary.totalDiv)}</div>
-                         <div className="text-xs text-slate-500 font-medium">Ödenen Temettü</div>
-                      </div>
-                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
-                         <div className="flex justify-between items-start mb-3">
-                           <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700"><Clock size={14} className="text-slate-300"/></div>
-                           <div className="text-amber-400 text-sm font-medium">%0,0</div>
-                         </div>
-                         <div className="text-xl font-bold text-white mb-1">₺0,00</div>
-                         <div className="text-xs text-slate-500 font-medium">Beklenen Temettü</div>
-                      </div>
-                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
-                         <div className="flex justify-between items-start mb-3">
-                           <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1"></div>
-                           <div className="text-emerald-400 text-sm font-medium">%{formatPercentage(summary.pnlPct)}</div>
-                         </div>
-                         <div className="text-xl font-bold text-white mb-1">{formatCurrency(summary.pnl)}</div>
-                         <div className="text-xs text-slate-500 font-medium">Gerçekleşen K/Z</div>
-                      </div>
-                      <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
-                         <div className="flex justify-between items-start mb-3">
-                           <div className="w-2 h-2 rounded-full bg-cyan-500 mt-1"></div>
-                           <div className="text-cyan-400 text-sm font-medium">%{daily ? formatPercentage(daily.pct) : '0,0'}</div>
-                         </div>
-                         <div className="text-xl font-bold text-white mb-1">{daily ? formatCurrency(daily.val) : '₺0,00'}</div>
-                         <div className="text-xs text-slate-500 font-medium">Günlük K/Z</div>
-                      </div>
-                    </div>
+                    {/* Beklenen yıllık temettü: son 12 ayın toplamı */}
+                    {(() => {
+                      const now = new Date();
+                      const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+                      const recentDivs = dividends.filter(d => new Date(d.date) >= twelveMonthsAgo);
+                      const trailingAnnualDiv = recentDivs.reduce((a, d) => a + d.net, 0);
+                      const estimatedYield = summary.totalCost > 0 ? (trailingAnnualDiv / summary.totalCost) * 100 : 0;
+
+                      return (
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                          <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700"><Download size={14} className="text-slate-300"/></div>
+                              <div className="text-emerald-400 text-sm font-medium">{formatPercentage(summary.totalCost > 0 ? (summary.totalDiv / summary.totalCost) * 100 : 0)}</div>
+                            </div>
+                            <div className="text-xl font-bold text-white mb-1">{formatCurrency(summary.totalDiv)}</div>
+                            <div className="text-xs text-slate-500 font-medium">Ödenen Temettü</div>
+                          </div>
+                          <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700"><Clock size={14} className="text-slate-300"/></div>
+                              <div className="text-amber-400 text-sm font-medium">{formatPercentage(estimatedYield)}</div>
+                            </div>
+                            <div className="text-xl font-bold text-white mb-1">{formatCurrency(trailingAnnualDiv)}</div>
+                            <div className="text-xs text-slate-500 font-medium">Yıllık Temettü (TTM)</div>
+                          </div>
+                          <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1"></div>
+                              <div className={cn("text-sm font-medium", summary.pnl >= 0 ? "text-emerald-400" : "text-red-400")}>{formatPercentage(summary.pnlPct)}</div>
+                            </div>
+                            <div className="text-xl font-bold text-white mb-1">{formatCurrency(summary.pnl)}</div>
+                            <div className="text-xs text-slate-500 font-medium">Gerçekleşen K/Z</div>
+                          </div>
+                          <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="w-2 h-2 rounded-full bg-cyan-500 mt-1"></div>
+                              <div className={cn("text-sm font-medium", !daily || daily.val >= 0 ? "text-cyan-400" : "text-red-400")}>{daily ? formatPercentage(daily.pct) : '0,00%'}</div>
+                            </div>
+                            <div className="text-xl font-bold text-white mb-1">{daily ? formatCurrency(daily.val) : '₺0,00'}</div>
+                            <div className="text-xs text-slate-500 font-medium">Günlük K/Z</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {chartData.length > 0 && (
                       <motion.div 
@@ -502,7 +517,7 @@ export default function Dashboard() {
                             "text-[10px] font-medium px-1.5 py-0.5 rounded-md",
                             stock.profitLoss >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                           )}>
-                            {stock.profitLoss >= 0 ? '↑' : '↓'} {formatPercentage(stock.profitLossPct)}
+                            {stock.profitLoss >= 0 ? '↑' : '↓'} {formatPercentage(Math.abs(stock.profitLossPct))}
                           </div>
                         </div>
                         <div>
@@ -568,7 +583,7 @@ export default function Dashboard() {
                                 "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
                                 (stats?.profitLoss || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                               )}>
-                                {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
+                                {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(Math.abs(stats?.profitLossPct || 0))}
                               </div>
                             </td>
                             <td className="px-6 py-4 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -613,7 +628,7 @@ export default function Dashboard() {
                               "px-2 py-1 rounded-md text-xs font-medium h-fit mt-1",
                               (stats?.profitLoss || 0) >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                             )}>
-                              {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(stats?.profitLossPct || 0)}
+                              {(stats?.profitLoss || 0) >= 0 ? '↑' : '↓'} {formatPercentage(Math.abs(stats?.profitLossPct || 0))}
                             </div>
                           </div>
                           <button 
@@ -821,7 +836,7 @@ export default function Dashboard() {
                                   <div key={`item-${index}`} className="flex items-center gap-1.5">
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
                                     <span className="text-[10px] font-bold text-slate-300">{entry.value}</span>
-                                    <span className="text-[10px] text-slate-500">%{formatPercentage(((entry.payload.currentValue / summary.totalValue) * 100))}</span>
+                                    <span className="text-[10px] text-slate-500">{formatPercentage(summary.totalValue > 0 ? (entry.payload.currentValue / summary.totalValue) * 100 : 0)}</span>
                                   </div>
                                 ))}
                               </div>
@@ -848,10 +863,10 @@ export default function Dashboard() {
                         <div key={sector}>
                           <div className="flex justify-between text-xs font-medium text-slate-300 mb-2">
                             <span>{sector}</span>
-                            <span className="text-slate-400">{formatPercentage(((value as number) / (summary.totalValue as number)) * 100)}</span>
+                            <span className="text-slate-400">{formatPercentage(summary.totalValue > 0 ? ((value as number) / summary.totalValue) * 100 : 0)}</span>
                           </div>
                           <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${((value as number) / (summary.totalValue as number)) * 100}%` }} />
+                            <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${summary.totalValue > 0 ? ((value as number) / summary.totalValue) * 100 : 0}%` }} />
                           </div>
                         </div>
                       ))}
@@ -903,17 +918,25 @@ export default function Dashboard() {
                    if (g.type === 'annual_div') current = dividends.filter(d => d.date.startsWith(thisYear)).reduce((a, d) => a + d.net, 0);
                    if (g.type === 'monthly_div') current = dividends.filter(d => d.date.startsWith(thisMonth)).reduce((a, d) => a + d.net, 0);
                    
-                   const progress = Math.min(100, ((current as number) / (g.target as number)) * 100);
+                   const progress = g.target > 0 ? Math.min(100, ((current as number) / g.target) * 100) : 0;
+                   const isCountType = g.type === 'stock_count';
 
                    return (
                      <div key={g.id} className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6">
                         <div className="flex justify-between items-start mb-4">
                           <div>
                             <div className="text-lg font-bold text-white mb-1">{g.name}</div>
-                            <div className="text-xs text-slate-500">{g.type.replace('_',' ')} &bull; {g.date || 'SÜRESİZ'}</div>
+                            <div className="text-xs text-slate-500">
+                              {g.type === 'annual_div' ? 'Yıllık Temettü'
+                                : g.type === 'monthly_div' ? 'Aylık Temettü'
+                                : g.type === 'portfolio_val' ? 'Portföy Değeri'
+                                : g.type === 'total_div' ? 'Toplam Temettü'
+                                : g.type === 'stock_count' ? 'Hisse Sayısı'
+                                : g.type} &bull; {g.date || 'SÜRESİZ'}
+                            </div>
                           </div>
                           <div className="text-right flex flex-col items-end">
-                            <div className="text-2xl font-bold text-cyan-400 mb-1">{Math.round(progress)}%</div>
+                            <div className="text-2xl font-bold text-cyan-400 mb-1">{formatPercentage(progress)}</div>
                             <button onClick={() => dbService.remove('goals', g.id)} className="text-[10px] text-slate-500 hover:text-red-400 flex items-center gap-1"><Trash2 size={12}/> SİL</button>
                           </div>
                         </div>
@@ -926,8 +949,8 @@ export default function Dashboard() {
                            />
                         </div>
                         <div className="flex justify-between text-xs font-medium text-slate-400">
-                           <span>{formatCurrency(current)}</span>
-                           <span>Hedef: {formatCurrency(g.target)}</span>
+                           <span>{isCountType ? formatCount(current as number) : formatCurrency(current as number)}</span>
+                           <span>Hedef: {isCountType ? formatCount(g.target) : formatCurrency(g.target)}</span>
                         </div>
                      </div>
                    );
@@ -961,7 +984,7 @@ export default function Dashboard() {
                   <div className="text-right">
                     <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Toplam K/Z</div>
                     <div className={cn("text-lg font-bold", s.profitLoss >= 0 ? "text-emerald-400" : "text-red-400")}>
-                      {s.profitLoss >= 0 ? '↑' : '↓'} {formatPercentage(s.profitLossPct)}
+                      {s.profitLoss >= 0 ? '↑' : '↓'} {formatPercentage(Math.abs(s.profitLossPct))}
                     </div>
                   </div>
                 </div>

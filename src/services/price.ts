@@ -16,13 +16,15 @@ export const BIST_STOCKS: Record<string, { name: string; sector: string }> = {
   YEOTK: { name: 'Yeo Teknoloji', sector: 'Enerji' },
   EUPWR: { name: 'Europower Enerji', sector: 'Enerji' },
   NTGAZ: { name: 'Naturelgaz Sanayi', sector: 'Enerji' },
-  
+
   // Havacılık / Hizmet
   CLEBI: { name: 'Çelebi Hava Servisi', sector: 'Hizmet' },
-  
+
   // GYO
   TRGYO: { name: 'Türkiye Reit GYO', sector: 'GYO' },
-  
+  EKGYO: { name: 'Emlak Konut GYO', sector: 'GYO' },
+  SNGYO: { name: 'Sinpaş GYO', sector: 'GYO' },
+
   // Banka
   AKBNK: { name: 'Akbank', sector: 'Banka' },
   GARAN: { name: 'Garanti BBVA', sector: 'Banka' },
@@ -80,114 +82,141 @@ export const BIST_STOCKS: Record<string, { name: string; sector: string }> = {
   TTKOM: { name: 'Türk Telekom', sector: 'Teknoloji' },
   MIATK: { name: 'Mia Teknoloji', sector: 'Teknoloji' },
   REEDR: { name: 'Reeder Teknoloji', sector: 'Teknoloji' },
-  SNGYO: { name: 'Sinpaş GYO', sector: 'GYO' },
-  EKGYO: { name: 'Emlak Konut GYO', sector: 'GYO' },
 };
 
-const API_BASE = import.meta.env.VITE_PRICE_API_URL || '/api';
-
-async function fetchFromYahoo(ticker: string, exchange: string): Promise<number | null> {
-  const symbol = exchange === 'BIST' ? `${ticker}.IS` : ticker;
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-  const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-  try {
-    const res = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const yahooData = JSON.parse(data.contents);
-    return yahooData?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-  } catch {
-    return null;
-  }
+// ─── Yahoo Finance Symbol ───────────────────────────────────────────────────
+function toYahooSymbol(ticker: string, exchange: string): string {
+  if (exchange === 'BIST') return `${ticker}.IS`;
+  if (exchange === 'LSE') return `${ticker}.L`;
+  return ticker;
 }
 
-export async function fetchStockPrice(ticker: string, exchange = 'BIST'): Promise<number | null> {
+// ─── Yahoo Finance v8 (doğrudan + proxy fallback) ──────────────────────────
+async function fetchYahooPrice(ticker: string, exchange: string): Promise<number | null> {
+  const symbol = toYahooSymbol(ticker, exchange);
+
+  // 1. Vite dev proxy veya Vercel serverless üzerinden dene (CORS yok)
   try {
-    const res = await fetch(`${API_BASE}/price/${encodeURIComponent(ticker)}?exchange=${exchange}`, {
-      signal: AbortSignal.timeout(5000),
+    const res = await fetch(`/api/prices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stocks: [{ ticker, exchange }] }),
+      signal: AbortSignal.timeout(8000),
     });
     if (res.ok) {
       const data = await res.json();
-      return data.price ?? null;
+      const price = data[ticker];
+      if (price != null && price > 0) return Math.round(price * 100) / 100;
     }
   } catch { /* fallback */ }
-  return fetchFromYahoo(ticker, exchange);
+
+  // 2. Yahoo Finance v8 — query1
+  const endpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+  ];
+  const proxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?url=',
+  ];
+
+  for (const proxy of proxies) {
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(proxy + encodeURIComponent(endpoint), {
+          signal: AbortSignal.timeout(7000),
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (price != null && price > 0) return Math.round(price * 100) / 100;
+      } catch { continue; }
+    }
+  }
+
+  return null;
 }
 
+// ─── Tek hisse fiyatı ───────────────────────────────────────────────────────
+export async function fetchStockPrice(ticker: string, exchange = 'BIST'): Promise<number | null> {
+  return fetchYahooPrice(ticker, exchange);
+}
+
+// ─── Toplu fiyat çekme (tam paralel, gecikme yok) ──────────────────────────
 export async function fetchStockPricesBatch(
   stocks: { ticker: string; exchange: string }[]
 ): Promise<Record<string, number | null>> {
   if (stocks.length === 0) return {};
-  try {
-    const res = await fetch(`${API_BASE}/prices`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stocks }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (res.ok) return await res.json();
-  } catch { /* ignore */ }
 
-  // Fallback: Try relative /api/prices (hits Vite middleware or Vercel serverless)
+  // Önce sunucu-taraflı batch endpoint'i dene (tek istek, en hızlı)
   try {
     const res = await fetch(`/api/prices`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stocks }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(20000),
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      // Tüm ticker'lar geldi mi kontrol et
+      const allFetched = stocks.every(s => data[s.ticker] != null);
+      if (allFetched) return data;
+      // Kısmi sonuç — eksikleri tek tek tamamla
+      const missing = stocks.filter(s => data[s.ticker] == null);
+      const extras = await Promise.all(
+        missing.map(async s => ({ ticker: s.ticker, price: await fetchYahooPrice(s.ticker, s.exchange) }))
+      );
+      extras.forEach(e => { data[e.ticker] = e.price; });
+      return data;
+    }
   } catch { /* fallback */ }
 
-  const results: { ticker: string, price: number | null }[] = [];
-  for (const { ticker, exchange } of stocks) {
-    const price = await fetchFromYahoo(ticker, exchange);
-    results.push({ ticker, price });
-    // allorigins rate limit'e takılmamak için 800ms bekle
-    await new Promise(resolve => setTimeout(resolve, 800));
-  }
-  
-  return Object.fromEntries(results.map(({ ticker, price }) => [ticker, price]));
+  // Sunucu yok — hepsini paralel olarak proxy üzerinden çek
+  const results = await Promise.all(
+    stocks.map(async s => ({
+      ticker: s.ticker,
+      price: await fetchYahooPrice(s.ticker, s.exchange),
+    }))
+  );
+
+  return Object.fromEntries(results.map(r => [r.ticker, r.price]));
 }
 
+// ─── Hisse bilgisi (ad + sektör) ───────────────────────────────────────────
 export async function fetchStockInfo(
   ticker: string,
   exchange: string = 'BIST'
 ): Promise<{ name: string; sector: string; success: boolean }> {
   const symbol = ticker.toUpperCase();
-  
+
   // 1. Yerel BIST listesinden anında bul
   if (BIST_STOCKS[symbol]) {
     return { ...BIST_STOCKS[symbol], success: true };
   }
 
-  // 2. Python sunucusu varsa kullan
-  try {
-    const res = await fetch(`${API_BASE}/info/${ticker}?exchange=${exchange}`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success) return data;
-    }
-  } catch { /* fallback */ }
-
-  // 3. Yahoo Finance Search API
+  // 2. Yahoo Finance Search API (proxy üzerinden)
   try {
     const yahooSymbol = exchange === 'BIST' ? `${symbol}.IS` : symbol;
-    const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${yahooSymbol}&quotesCount=1`;
-    const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxy, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      const quote = data?.quotes?.[0];
-      if (quote) {
-        return {
-          name: quote.longname || quote.shortname || symbol,
-          sector: quote.industry || 'Diğer',
-          success: true,
-        };
-      }
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${yahooSymbol}&quotesCount=1&newsCount=0`;
+    const proxies = [
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?url=',
+    ];
+    for (const proxy of proxies) {
+      try {
+        const res = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          const quote = data?.quotes?.[0];
+          if (quote) {
+            return {
+              name: quote.longname || quote.shortname || symbol,
+              sector: quote.industry || 'Diğer',
+              success: true,
+            };
+          }
+        }
+      } catch { continue; }
     }
   } catch { /* fallback */ }
 

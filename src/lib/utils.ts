@@ -12,10 +12,21 @@ export function formatCurrency(value: number) {
   }).format(value);
 }
 
+/**
+ * Yüzde değeri formatlar.
+ * value: 0-100 arasında bir sayı (örn: 15.5 → "%15,50")
+ * % işareti dahil döndürür — JSX'te başına tekrar % koymayın!
+ */
 export function formatPercentage(value: number) {
   return new Intl.NumberFormat('tr-TR', {
-    style: 'percent',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value / 100);
+  }).format(value) + '%';
+}
+
+/**
+ * Sayıyı adet olarak formatlar (hisse sayısı gibi)
+ */
+export function formatCount(value: number, unit = 'hisse') {
+  return `${Math.round(value)} ${unit}`;
 }
