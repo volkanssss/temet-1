@@ -12,6 +12,7 @@ import { RefreshCcw } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [isGuest, setIsGuest] = useState<boolean>(localStorage.getItem('guestMode') === 'true');
 
   useEffect(() => {
     // Mevcut oturumu al
@@ -20,9 +21,24 @@ export default function App() {
     // Oturum değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      if (s) {
+        localStorage.removeItem('guestMode');
+        setIsGuest(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    const handleStorage = () => {
+      setIsGuest(localStorage.getItem('guestMode') === 'true');
+    };
+    window.addEventListener('storage', handleStorage);
+    // Custom event to catch local changes in the same window
+    window.addEventListener('guestModeChanged', handleStorage);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('guestModeChanged', handleStorage);
+    };
   }, []);
 
   if (session === undefined) {
@@ -33,5 +49,5 @@ export default function App() {
     );
   }
 
-  return session ? <Dashboard /> : <Login />;
+  return (session || isGuest) ? <Dashboard /> : <Login />;
 }

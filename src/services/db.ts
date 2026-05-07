@@ -27,9 +27,31 @@ async function getUserId(): Promise<string> {
 }
 
 // ─── DB Service ──────────────────────────────────────────────────────────────
+export const isGuestMode = () => localStorage.getItem('guestMode') === 'true';
+
+// ─── LocalStorage DB Helper for Guest Mode ────────────────────────────────────
+function getLocalTable(table: string): any[] {
+  const data = localStorage.getItem(`guest_${table}`);
+  return data ? JSON.parse(data) : [];
+}
+
+function setLocalTable(table: string, data: any[]) {
+  localStorage.setItem(`guest_${table}`, JSON.stringify(data));
+  // Emit custom event for local subscriptions
+  window.dispatchEvent(new Event(`local_db_update_${table}`));
+}
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// ─── DB Service ──────────────────────────────────────────────────────────────
 export const dbService = {
   /** Belirli bir tablodaki tüm kayıtları çeker (kullanıcıya ait) */
   async list(table: string): Promise<any[]> {
+    if (isGuestMode()) {
+      return getLocalTable(table);
+    }
     const { data, error } = await supabase.from(table).select('*').order('updated_at', { ascending: false });
     if (error) throw error;
     return (data || []).map(toCamel);
@@ -37,6 +59,12 @@ export const dbService = {
 
   /** Yeni kayıt ekler */
   async add(table: string, payload: Record<string, any>): Promise<any> {
+    if (isGuestMode()) {
+      const rows = getLocalTable(table);
+      const newRow = { ...payload, id: generateId(), updatedAt: new Date().toISOString() };
+      setLocalTable(table, [newRow, ...rows]);
+      return newRow;
+    }
     const userId = await getUserId();
     const row = { ...toSnake(payload), user_id: userId, updated_at: new Date().toISOString() };
     const { data, error } = await supabase.from(table).insert(row).select().single();
@@ -46,6 +74,12 @@ export const dbService = {
 
   /** Mevcut kaydı günceller */
   async update(table: string, id: string, payload: Record<string, any>): Promise<void> {
+    if (isGuestMode()) {
+      const rows = getLocalTable(table);
+      const updatedRows = rows.map(r => r.id === id ? { ...r, ...payload, updatedAt: new Date().toISOString() } : r);
+      setLocalTable(table, updatedRows);
+      return;
+    }
     const row = { ...toSnake(payload), updated_at: new Date().toISOString() };
     const { error } = await supabase.from(table).update(row).eq('id', id);
     if (error) throw error;
@@ -53,9 +87,18 @@ export const dbService = {
 
   /** Kaydı siler — stocks için cascade (purchases + dividends) */
   async remove(table: string, id: string): Promise<void> {
+    if (isGuestMode()) {
+      if (table === 'stocks') {
+        const pRows = getLocalTable('purchases').filter(p => p.stockId !== id);
+        setLocalTable('purchases', pRows);
+        const dRows = getLocalTable('dividends').filter(d => d.stockId !== id);
+        setLocalTable('dividends', dRows);
+      }
+      const rows = getLocalTable(table).filter(r => r.id !== id);
+      setLocalTable(table, rows);
+      return;
+    }
     if (table === 'stocks') {
-      // Önce ilişkili kayıtları sil (FK ON DELETE CASCADE varsa zaten olur,
-      // ama güvence için elle de siliyoruz)
       const { error: pe } = await supabase.from('purchases').delete().eq('stock_id', id);
       if (pe) throw pe;
       const { error: de } = await supabase.from('dividends').delete().eq('stock_id', id);
@@ -67,6 +110,18 @@ export const dbService = {
 
   /** Portfolio History için Upsert (Günde 1 kayıt) */
   async upsertHistory(date: string, totalValue: number, totalCost: number): Promise<void> {
+    if (isGuestMode()) {
+      const rows = getLocalTable('portfolio_history');
+      const existingIdx = rows.findIndex(r => r.date === date);
+      const newRow = { id: generateId(), date, totalValue, totalCost, updatedAt: new Date().toISOString() };
+      if (existingIdx >= 0) {
+        rows[existingIdx] = { ...rows[existingIdx], totalValue, totalCost, updatedAt: new Date().toISOString() };
+      } else {
+        rows.push(newRow);
+      }
+      setLocalTable('portfolio_history', rows);
+      return;
+    }
     const userId = await getUserId();
     const { error } = await supabase.from('portfolio_history').upsert({
       user_id: userId,
@@ -80,14 +135,18 @@ export const dbService = {
 
   /**
    * Gerçek zamanlı abonelik.
-   * İlk yüklemede veriyi çeker, sonra değişikliklerde tekrar çeker.
-   * Dashboard.tsx ile aynı arayüzü korur.
    */
   subscribe(table: string, callback: (data: any[]) => void): () => void {
-    // İlk yükleme
-    this.list(table).then(callback).catch(console.error);
+    if (isGuestMode()) {
+      this.list(table).then(callback).catch(console.error);
+      const listener = () => {
+        this.list(table).then(callback).catch(console.error);
+      };
+      window.addEventListener(`local_db_update_${table}`, listener);
+      return () => { window.removeEventListener(`local_db_update_${table}`, listener); };
+    }
 
-    // Realtime kanal
+    this.list(table).then(callback).catch(console.error);
     const channel = supabase
       .channel(`realtime_${table}_${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table }, () => {

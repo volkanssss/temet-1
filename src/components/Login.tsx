@@ -49,7 +49,7 @@ export default function Login() {
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="w-full py-4 bg-white text-slate-950 font-bold text-sm rounded-2xl hover:bg-slate-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg shadow-white/5"
+            className="w-full py-4 bg-white text-slate-950 font-bold text-sm rounded-2xl hover:bg-slate-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg shadow-white/5 mb-4"
           >
             {loading ? (
               <RefreshCcw size={18} className="animate-spin" />
@@ -59,6 +59,17 @@ export default function Login() {
                 Google ile Giriş Yap
               </>
             )}
+          </button>
+
+          <button
+            onClick={() => {
+              localStorage.setItem('guestMode', 'true');
+              window.dispatchEvent(new Event('guestModeChanged'));
+            }}
+            disabled={loading}
+            className="w-full py-4 bg-slate-800 text-white font-bold text-sm rounded-2xl hover:bg-slate-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            Misafir Olarak Devam Et
           </button>
         </div>
 
