@@ -3,7 +3,7 @@ import { loginWithGoogle, supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register' | 'forgot_password';
 
 export default function Login() {
   const [loading,  setLoading]  = useState(false);
@@ -21,6 +21,22 @@ export default function Login() {
     if (err) { setError('Google girişi başarısız: ' + err.message); setLoading(false); }
   };
 
+  const handleResetPassword = async () => {
+    if (!email) { setError('Lütfen kayıtlı e-posta adresinizi girin.'); return; }
+    setLoading(true); setError(null); setSuccess(null);
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (err) throw err;
+      setSuccess('Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen (spam dahil) e-postanızı kontrol edin.');
+    } catch (err: any) {
+      setError(err.message || 'Şifre sıfırlama işlemi başarısız oldu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEmail = async () => {
     if (!email || !password) { setError('E-posta ve şifre gerekli!'); return; }
     if (password.length < 6)  { setError('Şifre en az 6 karakter olmalıdır!'); return; }
@@ -31,9 +47,14 @@ export default function Login() {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
       } else {
-        const { error: err } = await supabase.auth.signUp({ email, password });
+        const { data, error: err } = await supabase.auth.signUp({ email, password });
         if (err) throw err;
-        setSuccess('Doğrulama e-postası gönderildi. Lütfen e-postanızı kontrol edin.');
+        
+        if (data.session) {
+          setSuccess('Kayıt başarılı, giriş yapılıyor...');
+        } else {
+          setSuccess('Doğrulama e-postası gönderildi. Lütfen e-postanızı (ve spam/gereksiz klasörünü) kontrol edin. Gelmediyse Supabase ayarlarından e-posta doğrulamasını kapatabilirsiniz.');
+        }
         setLoading(false);
         return;
       }
@@ -74,21 +95,30 @@ export default function Login() {
         <div className="bg-slate-900/50 border border-slate-800 p-6 rounded-3xl backdrop-blur-xl shadow-2xl space-y-4">
 
           {/* Tab switcher */}
-          <div className="flex bg-slate-800/50 p-1 rounded-xl mb-2">
-            {(['login', 'register'] as AuthMode[]).map(m => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(null); setSuccess(null); }}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                  mode === m
-                    ? 'bg-slate-700 text-white shadow'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                {m === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}
-              </button>
-            ))}
-          </div>
+          {mode !== 'forgot_password' && (
+            <div className="flex bg-slate-800/50 p-1 rounded-xl mb-2">
+              {(['login', 'register'] as AuthMode[]).map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setMode(m); setError(null); setSuccess(null); }}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                    mode === m
+                      ? 'bg-slate-700 text-white shadow'
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {m === 'login' ? 'Giriş Yap' : 'Hesap Oluştur'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === 'forgot_password' && (
+            <div className="text-center mb-4">
+              <h2 className="text-white font-medium">Şifremi Unuttum</h2>
+              <p className="text-xs text-slate-400 mt-1">E-posta adresinizi girin, size bir sıfırlama bağlantısı gönderelim.</p>
+            </div>
+          )}
 
           <AnimatePresence>
             {error && (
@@ -113,7 +143,7 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          {/* E-posta + Şifre */}
+          {/* E-posta */}
           <div className="relative">
             <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
@@ -125,34 +155,60 @@ export default function Login() {
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
             />
           </div>
-          <div className="relative">
-            <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              type={showPass ? 'text' : 'password'}
-              placeholder="Şifreniz (min. 6 karakter)"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleEmail()}
-              disabled={loading}
-              className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-10 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPass(s => !s)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-            >
-              {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
+          
+          {/* Şifre (Sadece login/register) */}
+          {mode !== 'forgot_password' && (
+            <div className="relative">
+              <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type={showPass ? 'text' : 'password'}
+                placeholder="Şifreniz (min. 6 karakter)"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleEmail()}
+                disabled={loading}
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-10 pr-10 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(s => !s)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              >
+                {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          )}
 
-          {/* E-posta ile giriş butonu */}
+          {/* Aksiyon butonu */}
           <button
-            onClick={handleEmail}
+            onClick={mode === 'forgot_password' ? handleResetPassword : handleEmail}
             disabled={loading}
             className="w-full py-3 bg-cyan-500 text-slate-950 font-bold text-sm rounded-xl hover:bg-cyan-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {loading ? <RefreshCcw size={16} className="animate-spin" /> : (mode === 'login' ? '→ Giriş Yap' : '→ Hesap Oluştur')}
+            {loading ? <RefreshCcw size={16} className="animate-spin" /> : 
+              mode === 'login' ? '→ Giriş Yap' : 
+              mode === 'register' ? '→ Hesap Oluştur' : 
+              'Bağlantı Gönder'}
           </button>
+
+          {/* Şifremi unuttum / Geri dön */}
+          <div className="flex justify-center mt-2">
+            {mode === 'login' ? (
+              <button 
+                onClick={() => { setMode('forgot_password'); setError(null); setSuccess(null); }}
+                className="text-xs text-cyan-500 hover:text-cyan-400"
+              >
+                Şifremi Unuttum
+              </button>
+            ) : mode === 'forgot_password' ? (
+              <button 
+                onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+                className="text-xs text-slate-400 hover:text-slate-300"
+              >
+                ← Giriş Yap'a Dön
+              </button>
+            ) : null}
+          </div>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-slate-800" />
