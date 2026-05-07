@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -12,44 +13,114 @@
   --line: #1e293b;
 }
 
+/* ─── Light Mode Overrides ─────────────────────────────────────────────────── */
 .light {
-  /* Invert common slate colors used in the app to achieve instant light mode */
-  --color-slate-950: #f8fafc; 
-  --color-slate-900: #f1f5f9; 
-  --color-slate-800: #e2e8f0; 
-  --color-slate-700: #cbd5e1; 
-  --color-slate-600: #94a3b8; 
-  --color-slate-500: #64748b; 
-  --color-slate-400: #475569; 
-  --color-slate-300: #334155; 
-  --color-slate-200: #1e293b; 
-  --color-slate-100: #0f172a; 
-  --color-slate-50:  #020617; 
-  
-  --color-white: #020617;
-  --color-black: #ffffff;
+  --color-slate-950: #f1f5f9;
+  --color-slate-900: #e2e8f0;
+  --color-slate-800: #cbd5e1;
+  --color-slate-700: #94a3b8;
+  --color-slate-600: #64748b;
+  --color-slate-500: #475569;
+  --color-slate-400: #334155;
+  --color-slate-300: #1e293b;
+  --color-slate-200: #0f172a;
+  --color-slate-100: #0f172a;
+  --color-slate-50:  #020617;
 
-  --bg: #f8fafc;
+  /* Düzeltme: white/black tersine çevrilmiyor — sadece koyu tonlara ayarlanıyor */
+  --color-white: #1e293b;
+  --color-black: #f8fafc;
+
+  --bg: #f1f5f9;
   --ink: #0f172a;
 }
 
 body {
-  background-color: var(--color-slate-950);
-  color: var(--color-slate-100);
+  background-color: var(--color-slate-950, #0f172a);
+  color: var(--color-slate-100, #f1f5f9);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Custom Scrollbar for Dark Mode */
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-slate-950); 
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-slate-700); 
-  border-radius: 4px;
+  background: var(--color-slate-700, #334155);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-slate-600); 
+  background: var(--color-slate-600, #475569);
+}
+
+/* ─── Hide Scrollbar (yatay kaydırma alanları için) ─────────────────────────── */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Selection ─────────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(6, 182, 212, 0.3);
+  color: white;
+}
+
+/* ─── Focus Ring ─────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #06b6d4;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Animasyonlar ───────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out both;
+}
+
+/* ─── Skeleton Loading ───────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-slate-800, #1e293b) 25%,
+    var(--color-slate-700, #334155) 50%,
+    var(--color-slate-800, #1e293b) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ─── Number Input ───────────────────────────────────────────────────────────── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.3;
+}
+
+/* ─── Smooth transition for theme changes ───────────────────────────────────── */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* Override: animated elements should not inherit transition */
+.motion-safe\:transition-none {
+  transition: none !important;
 }

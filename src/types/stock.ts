@@ -11,6 +11,17 @@ export interface StockHolding {
   updatedAt?: string;
 }
 
+export interface StockStat extends StockHolding {
+  qty: number;
+  avgCost: number;
+  totalCost: number;
+  currentPrice: number;
+  currentValue: number;
+  profitLoss: number;
+  profitLossPct: number;
+  totalDiv: number;
+}
+
 export interface Purchase {
   id: string;
   stockId: string;
@@ -19,6 +30,18 @@ export interface Purchase {
   price: number;
   note?: string;
   isDrip?: boolean;
+}
+
+export interface Sale {
+  id: string;
+  stockId: string;
+  ticker: string;
+  date: string;
+  qty: number;
+  price: number;
+  costBasis: number; // ortalama maliyet x lot (satış anında)
+  realizedPnl: number;
+  note?: string;
 }
 
 export interface Dividend {
@@ -45,10 +68,10 @@ export interface Goal {
 
 export interface PortfolioSummary {
   totalValue: number;
-  totalInvestment: number;
-  totalProfitLoss: number;
-  profitLossPercentage: number;
-  totalDividends: number;
+  totalCost: number;
+  totalDiv: number;
+  pnl: number;
+  pnlPct: number;
 }
 
 export interface PortfolioHistory {
