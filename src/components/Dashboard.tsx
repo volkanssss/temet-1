@@ -976,6 +976,11 @@ export default function Dashboard() {
               onSave={() => setViewingStockDetails(null)}
             >
               <div className="space-y-6">
+                <div>
+                  <div className="text-xl font-bold text-slate-100">{s.name}</div>
+                  <div className="text-sm text-slate-400 font-medium">{s.exchange} &bull; {s.sector}</div>
+                </div>
+
                 <div className="flex justify-between items-center bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
                   <div>
                     <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Güncel Değer</div>
@@ -991,48 +996,73 @@ export default function Dashboard() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-800/50">
-                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Maliyet</div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Anlık Fiyat</div>
+                    <div className="text-sm font-semibold text-slate-200">{s.lastPrice ? formatCurrency(s.lastPrice) : '---'}</div>
+                  </div>
+                  <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-800/50">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Ort. Maliyet</div>
                     <div className="text-sm font-semibold text-slate-200">{formatCurrency(s.avgCost)}</div>
                   </div>
                   <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-800/50">
-                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Adet</div>
+                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Toplam Adet</div>
                     <div className="text-sm font-semibold text-slate-200">{s.qty} LOT</div>
                   </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Son İşlemler</h3>
-                  <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 hide-scrollbar">
-                    {sPurchases.slice(0, 5).map(p => (
-                      <div key={p.id} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-xl border border-slate-800/40 text-xs">
-                        <div className="text-slate-300 font-medium">{p.qty} Lot Alım</div>
-                        <div className="text-slate-500">{p.date}</div>
-                      </div>
-                    ))}
-                    {sPurchases.length === 0 && <div className="text-center py-4 text-slate-600 text-xs italic">İşlem kaydı yok.</div>}
+                  <div className="bg-slate-800/30 p-3 rounded-xl border border-slate-800/50">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Maliyetine Temettü Verimi</div>
+                    <div className="text-sm font-semibold text-emerald-400">%{formatPercentage(s.totalCost > 0 ? (s.totalDiv / s.totalCost) * 100 : 0)}</div>
                   </div>
                 </div>
 
-                {sDividends.length > 0 && (
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Temettü Geçmişi</h3>
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Son İşlemler</h3>
                     <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 hide-scrollbar">
-                      {sDividends.map(d => (
+                      {sPurchases.slice(0, 5).map(p => (
+                        <div key={p.id} className="flex justify-between items-center bg-slate-950/30 p-3 rounded-xl border border-slate-800/40 text-xs">
+                          <div className="text-slate-300 font-medium">{p.qty} Lot</div>
+                          <div className="text-slate-500">{p.date}</div>
+                        </div>
+                      ))}
+                      {sPurchases.length === 0 && <div className="text-center py-4 text-slate-600 text-xs italic">Kayıt yok.</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Son Temettüler</h3>
+                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 hide-scrollbar">
+                      {sDividends.slice(0, 5).map(d => (
                         <div key={d.id} className="flex justify-between items-center bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10 text-xs">
                           <div className="text-emerald-400 font-medium">{formatCurrency(d.net)}</div>
                           <div className="text-slate-500">{d.date}</div>
                         </div>
                       ))}
+                      {sDividends.length === 0 && <div className="text-center py-4 text-slate-600 text-xs italic">Kayıt yok.</div>}
                     </div>
                   </div>
-                )}
+                </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
                   <button 
-                    onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }}
-                    className="flex-1 py-3 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold hover:bg-slate-700 transition-colors"
+                    onClick={() => { setSelectedStockId(s.id); setViewingStockDetails(null); setIsAddingPurchase(true); }}
+                    className="flex-1 min-w-[100px] py-3 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold hover:bg-slate-700 transition-colors"
                   >
                     ALIM EKLE
+                  </button>
+                  <button 
+                    onClick={() => { setViewingStockDetails(null); setIsAddingDividend(true); }}
+                    className="flex-1 min-w-[100px] py-3 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors"
+                  >
+                    TEMETTÜ EKLE
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm(`${s.ticker} portföyünüzden silinecektir. Emin misiniz?`)) {
+                        dbService.remove('stocks', s.id);
+                        setViewingStockDetails(null);
+                      }
+                    }}
+                    className="flex-1 min-w-[100px] py-3 rounded-xl bg-slate-800 text-slate-200 text-xs font-bold hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                  >
+                    HİSSE SİL
                   </button>
                 </div>
               </div>
