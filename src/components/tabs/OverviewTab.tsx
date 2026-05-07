@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Eye, RefreshCcw, Download, Clock } from 'lucide-react';
+import { Eye, RefreshCcw, Download, Clock, Calendar, TrendingUp } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn, formatCurrency, formatPercentage } from '../../lib/utils';
 import { PortfolioHistory } from '../../types/stock';
@@ -195,19 +195,20 @@ export default function OverviewTab({
               const monthName = monthDate.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
               const isCurrentMonth = month === new Date().toISOString().substring(0, 7);
               return (
-                <div key={month} className={`min-w-[280px] snap-start rounded-2xl p-5 border ${isCurrentMonth ? 'bg-slate-800 border-slate-700' : 'bg-slate-900/40 border-slate-800/80'}`}>
-                  <div className={`text-xs font-medium opacity-60 mb-2 ${isCurrentMonth ? 'text-cyan-400 opacity-100' : 'text-slate-400'}`}>
-                    {monthName} {isCurrentMonth && '(Mevcut)'}
+                <div key={month} className={`min-w-[300px] snap-start rounded-2xl p-6 border relative overflow-hidden ${isCurrentMonth ? 'bg-slate-800/80 border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-800/60 transition-colors'}`}>
+                  {isCurrentMonth && <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>}
+                  <div className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isCurrentMonth ? 'text-cyan-400' : 'text-slate-400 opacity-80'}`}>
+                    <Calendar size={14} /> {monthName} {isCurrentMonth && '(Mevcut)'}
                   </div>
-                  <div className="text-2xl font-bold text-white mb-3">{formatCurrency(data.total)}</div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-slate-950/50 p-2 rounded-lg">
-                      <div className="text-slate-500 mb-1">Net Yatırım</div>
-                      <div className={isCurrentMonth ? "text-cyan-400 font-medium" : "text-slate-300"}>{formatCurrency(net)}</div>
+                  <div className={`text-3xl font-bold tracking-tight mb-5 ${isCurrentMonth ? 'text-white' : 'text-white'}`}>{formatCurrency(data.total)}</div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
+                      <div className="text-slate-500 font-medium mb-1 flex items-center gap-1.5"><TrendingUp size={12}/> Net Yatırım</div>
+                      <div className={isCurrentMonth ? "text-cyan-400 font-bold text-sm" : "text-slate-300 font-bold text-sm"}>{formatCurrency(net)}</div>
                     </div>
-                    <div className="bg-slate-950/50 p-2 rounded-lg">
-                      <div className="text-slate-500 mb-1">Temettü (DRIP)</div>
-                      <div className="text-slate-300">{formatCurrency(data.drip)}</div>
+                    <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/50">
+                      <div className="text-slate-500 font-medium mb-1 flex items-center gap-1.5"><RefreshCcw size={12}/> Temettü (DRIP)</div>
+                      <div className="text-slate-300 font-bold text-sm">{formatCurrency(data.drip)}</div>
                     </div>
                   </div>
                 </div>
@@ -223,24 +224,30 @@ export default function OverviewTab({
             {stockStats.map(stock => (
               <motion.div 
                 key={stock.id} 
-                whileHover={{ y: -2, scale: 1.02 }}
+                whileHover={{ y: -4 }}
                 onClick={() => setViewingStockDetails(stock.id)} 
-                className="border border-slate-800 p-4 bg-slate-900/60 hover:bg-slate-800 transition-all group flex flex-col justify-between cursor-pointer rounded-2xl shadow-sm"
+                className="border border-slate-800/60 p-4 bg-slate-900/40 hover:bg-slate-800/80 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(6,182,212,0.05)] transition-all group flex flex-col justify-between cursor-pointer rounded-2xl"
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <div className="text-sm font-bold text-white leading-none">{stock.ticker}</div>
-                    <div className="text-[10px] text-slate-500 group-hover:text-slate-400 mt-1 line-clamp-1">{stock.name}</div>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex gap-3 items-center">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-slate-300 group-hover:bg-cyan-500/10 group-hover:text-cyan-400 group-hover:border-cyan-500/20 transition-colors">
+                      {stock.ticker.substring(0, 1)}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-100 group-hover:text-white transition-colors">{stock.ticker}</div>
+                      <div className="text-[10px] text-slate-500 line-clamp-1 group-hover:text-slate-400 transition-colors">{stock.name}</div>
+                    </div>
                   </div>
                   <div className={cn(
-                    "text-[10px] font-medium px-1.5 py-0.5 rounded-md",
+                    "text-[10px] font-bold px-1.5 py-0.5 rounded-md",
                     stock.profitLoss >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                   )}>
-                    {stock.profitLoss >= 0 ? '↑' : '↓'} {formatPercentage(Math.abs(stock.profitLossPct))}
+                    {stock.profitLoss >= 0 ? '+' : ''}{formatPercentage(stock.profitLossPct)}
                   </div>
                 </div>
-                <div>
-                  <div className="text-xs text-right text-slate-300 font-medium">{formatCurrency(stock.currentValue)}</div>
+                <div className="flex justify-between items-end">
+                  <div className="text-[10px] text-slate-500 font-medium">Değer</div>
+                  <div className="text-sm text-white font-bold tracking-tight">{formatCurrency(stock.currentValue)}</div>
                 </div>
               </motion.div>
             ))}
