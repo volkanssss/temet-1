@@ -145,6 +145,8 @@ export default function OverviewTab({
           { icon: '📅', label: 'Yıllık Temettü (TTM)', val: formatCurrency(trailingAnnualDiv), sub: formatPercentage(estimatedYield) + ' tahmini', color: 'text-amber-400' },
           { icon: '📈', label: 'Gerçekleşen K/Z', val: formatCurrency(summary.pnl), sub: formatPercentage(summary.pnlPct), color: summary.pnl >= 0 ? 'text-emerald-400' : 'text-red-400' },
           { icon: '⚡', label: 'Günlük K/Z', val: daily ? formatCurrency(daily.val) : '₺0,00', sub: daily ? formatPercentage(daily.pct) : '0,00%', color: !daily || daily.val >= 0 ? 'text-cyan-400' : 'text-red-400' },
+          { icon: '🔄', label: 'DRIP Geri Alımlar', val: formatCurrency(summary.totalDrip || 0), sub: 'Temettüyle alınan', color: 'text-violet-400' },
+          { icon: '💸', label: 'Satış K/Z (Gerçek)', val: formatCurrency(summary.realizedPnl || 0), sub: summary.realizedPnl >= 0 ? 'Kâr' : 'Zarar', color: (summary.realizedPnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400' },
         ].map(m => (
           <div key={m.label} className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800/80">
             <div className="flex justify-between items-start mb-3">

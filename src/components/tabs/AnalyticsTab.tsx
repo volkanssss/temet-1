@@ -5,7 +5,8 @@ import {
   BarChart, Bar, CartesianGrid, XAxis, YAxis, LineChart, Line,
 } from 'recharts';
 import { formatCurrency, formatPercentage } from '../../lib/utils';
-import { StockStat, Dividend, Purchase } from '../../types/stock';
+import { StockStat, Dividend, Purchase, Sale } from '../../types/stock';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 const COLORS = ['#06b6d4','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#f97316','#14b8a6','#a855f7','#ef4444'];
 
@@ -13,10 +14,11 @@ type AnalyticsTabProps = {
   stockStats: StockStat[];
   dividends: Dividend[];
   purchases: Purchase[];
+  sales: Sale[];
   summary: any;
 };
 
-export default function AnalyticsTab({ stockStats, dividends, purchases, summary }: AnalyticsTabProps) {
+export default function AnalyticsTab({ stockStats, dividends, purchases, sales, summary }: AnalyticsTabProps) {
   // Sektörel dağılım
   const sectorsData = Object.entries(
     stockStats.reduce((acc, s) => {
@@ -54,12 +56,25 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, summary
     : 0;
   const divScore = Math.max(0, 100 - hhi / 100);
 
+  // Gerçekleşen K/Z — satışlar
+  const totalRealizedPnl = sales.reduce((acc, s) => acc + s.realizedPnl, 0);
+  const salesByTicker = sales.reduce((acc, s) => {
+    if (!acc[s.ticker]) acc[s.ticker] = { ticker: s.ticker, realizedPnl: 0, qty: 0, count: 0 };
+    acc[s.ticker].realizedPnl += s.realizedPnl;
+    acc[s.ticker].qty         += s.qty;
+    acc[s.ticker].count       += 1;
+    return acc;
+  }, {} as Record<string, { ticker: string; realizedPnl: number; qty: number; count: number }>);
+
+  const sortedSalesStats = Object.values(salesByTicker).sort((a, b) => b.realizedPnl - a.realizedPnl);
+  const sortedSalesHistory = [...sales].sort((a, b) => b.date.localeCompare(a.date));
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
 
       {/* ─── Çeşitlendirme Skoru ─── */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800">
           <div className="text-xs text-slate-500 uppercase font-bold mb-3">Çeşitlendirme Skoru</div>
           <div className="relative w-20 h-20 mx-auto mb-3">
             <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
@@ -80,7 +95,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, summary
           </div>
         </div>
 
-        <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 col-span-2">
+        <div className="bg-slate-900/50 p-5 rounded-2xl border border-slate-800 md:col-span-2">
           <div className="text-xs text-slate-500 uppercase font-bold mb-3">Sektörel Dağılım</div>
           <div className="space-y-2.5">
             {sectorsData.slice(0, 5).map(([sector, value], i) => (
@@ -184,6 +199,73 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, summary
           </div>
         </div>
       </div>
+
+      {/* ─── Gerçekleşen K/Z (Satışlar) ─── */}
+      {sales.length > 0 && (
+        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+          <div className="flex justify-between items-center mb-5">
+            <h3 className="text-sm font-semibold text-slate-300">Gerçekleşen K/Z (Satışlar)</h3>
+            <span className={`text-lg font-bold flex items-center gap-1.5 ${totalRealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {totalRealizedPnl >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              {totalRealizedPnl >= 0 ? '+' : ''}{formatCurrency(totalRealizedPnl)}
+            </span>
+          </div>
+
+          {/* Hisse Bazlı Özet */}
+          {sortedSalesStats.length > 0 && (
+            <div className="space-y-2 mb-5">
+              {sortedSalesStats.map(s => (
+                <div key={s.ticker} className="flex items-center gap-3">
+                  <div className="w-16 text-xs font-bold text-slate-300">{s.ticker}</div>
+                  <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${s.realizedPnl >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                      style={{
+                        width: sortedSalesStats.length > 0
+                          ? `${Math.min(100, (Math.abs(s.realizedPnl) / Math.max(...sortedSalesStats.map(x => Math.abs(x.realizedPnl)))) * 100)}%`
+                          : '0%'
+                      }}
+                    />
+                  </div>
+                  <div className={`w-28 text-right text-xs font-bold ${s.realizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {s.realizedPnl >= 0 ? '+' : ''}{formatCurrency(s.realizedPnl)}
+                  </div>
+                  <div className="text-[10px] text-slate-600 w-16 text-right">{s.count} satış</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Satış Geçmişi */}
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Satış Geçmişi</h4>
+          <div className="space-y-2 max-h-[280px] overflow-y-auto hide-scrollbar">
+            {sortedSalesHistory.map(s => (
+              <div key={s.id} className={`flex justify-between items-center rounded-xl border p-3 text-sm ${
+                s.realizedPnl >= 0 ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-red-500/5 border-red-500/10'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-300">
+                    {s.ticker.slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-100">{s.ticker}</div>
+                    <div className="text-xs text-slate-500">{s.date} • {s.qty} lot • {formatCurrency(s.price)}/lot</div>
+                    {s.note && <div className="text-[10px] text-slate-600">{s.note}</div>}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-bold text-base ${s.realizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {s.realizedPnl >= 0 ? '+' : ''}{formatCurrency(s.realizedPnl)}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    Gelir: {formatCurrency(s.qty * s.price)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ─── Aylık Temettü Bar Chart ─── */}
       <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800">

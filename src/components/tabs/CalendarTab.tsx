@@ -107,22 +107,23 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
             return (
               <div
                 key={day}
-                className={`p-2 min-h-[72px] border-b border-slate-800/50 ${!isLastCol ? 'border-r' : ''} ${
+                className={`p-1 sm:p-2 min-h-[52px] sm:min-h-[72px] border-b border-slate-800/50 ${!isLastCol ? 'border-r' : ''} ${
                   isToday ? 'bg-cyan-500/5' : hasDivs ? 'bg-emerald-500/5' : ''
                 }`}
               >
-                <div className={`text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
+                <div className={`text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full ${
                   isToday ? 'bg-cyan-500 text-slate-950' : 'text-slate-400'
                 }`}>
                   {day}
                 </div>
                 {dayDivs.slice(0, 2).map((d, i) => (
-                  <div key={i} className="text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-1 py-0.5 rounded mb-0.5 truncate">
-                    {d.ticker} {formatCurrency(d.net)}
+                  <div key={i} className="text-[8px] sm:text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-0.5 sm:px-1 py-0.5 rounded mb-0.5 truncate">
+                    {d.ticker}
+                    <span className="hidden sm:inline"> {formatCurrency(d.net)}</span>
                   </div>
                 ))}
                 {dayDivs.length > 2 && (
-                  <div className="text-[9px] text-slate-500">+{dayDivs.length - 2} daha</div>
+                  <div className="text-[8px] sm:text-[9px] text-slate-500">+{dayDivs.length - 2}</div>
                 )}
               </div>
             );

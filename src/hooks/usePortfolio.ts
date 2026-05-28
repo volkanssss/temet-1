@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { dbService } from '../services/db';
 import { fetchStockPricesBatch } from '../services/price';
-import { StockHolding, Purchase, Dividend, Goal, PortfolioHistory } from '../types/stock';
+import { StockHolding, Purchase, Dividend, Goal, PortfolioHistory, Sale } from '../types/stock';
 
 export function usePortfolio() {
   const [stocks, setStocks] = useState<StockHolding[]>([]);
@@ -9,6 +9,7 @@ export function usePortfolio() {
   const [dividends, setDividends] = useState<Dividend[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [history, setHistory] = useState<PortfolioHistory[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
@@ -20,6 +21,7 @@ export function usePortfolio() {
     const unsubDividends = dbService.subscribe('dividends', setDividends);
     const unsubGoals     = dbService.subscribe('goals', setGoals);
     const unsubHistory   = dbService.subscribe('portfolio_history', setHistory);
+    const unsubSales     = dbService.subscribe('sales', setSales);
 
     return () => {
       unsubStocks();
@@ -27,6 +29,7 @@ export function usePortfolio() {
       unsubDividends();
       unsubGoals();
       unsubHistory();
+      unsubSales();
     };
   }, []);
 
@@ -34,9 +37,15 @@ export function usePortfolio() {
   const stockStats = useMemo(() => {
     return stocks.map(s => {
       const stockPurchases = purchases.filter(p => p.stockId === s.id);
-      const qty       = stockPurchases.reduce((acc, p) => acc + p.qty, 0);
+      const stockSales     = sales.filter(sl => sl.stockId === s.id);
+
+      // Net lot: alımlar - satışlar
+      const boughtQty = stockPurchases.reduce((acc, p) => acc + p.qty, 0);
+      const soldQty   = stockSales.reduce((acc, sl) => acc + sl.qty, 0);
+      const qty       = Math.max(0, boughtQty - soldQty);
+
       const totalCost = stockPurchases.reduce((acc, p) => acc + p.qty * p.price, 0);
-      const avgCost   = qty > 0 ? totalCost / qty : 0;
+      const avgCost   = boughtQty > 0 ? totalCost / boughtQty : 0;
       const currentPrice = s.lastPrice || avgCost;
       const currentValue = qty * currentPrice;
       const profitLoss   = currentValue - totalCost;
@@ -45,9 +54,18 @@ export function usePortfolio() {
       const stockDividends = dividends.filter(d => d.stockId === s.id);
       const totalDiv = stockDividends.reduce((acc, d) => acc + d.net, 0);
 
+      // Gerçekleşen K/Z (satışlardan)
+      const realizedPnl = stockSales.reduce((acc, sl) => acc + sl.realizedPnl, 0);
+
+      // DRIP alımları
+      const dripPurchases = stockPurchases.filter(p => p.isDrip);
+      const totalDrip = dripPurchases.reduce((acc, p) => acc + p.qty * p.price, 0);
+
       return {
         ...s,
         qty,
+        boughtQty,
+        soldQty,
         avgCost,
         totalCost,
         currentPrice,
@@ -55,19 +73,27 @@ export function usePortfolio() {
         profitLoss,
         profitLossPct,
         totalDiv,
+        realizedPnl,
+        totalDrip,
       };
     });
-  }, [stocks, purchases, dividends]);
+  }, [stocks, purchases, dividends, sales]);
 
   const summary = useMemo(() => {
-    const totalValue = stockStats.reduce((acc, s) => acc + s.currentValue, 0);
-    const totalCost  = stockStats.reduce((acc, s) => acc + s.totalCost, 0);
-    const totalDiv   = dividends.reduce((acc, d) => acc + d.net, 0);
-    const pnl        = totalValue - totalCost;
-    const pnlPct     = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+    const totalValue   = stockStats.reduce((acc, s) => acc + s.currentValue, 0);
+    const totalCost    = stockStats.reduce((acc, s) => acc + s.totalCost, 0);
+    const totalDiv     = dividends.reduce((acc, d) => acc + d.net, 0);
+    const pnl          = totalValue - totalCost;
+    const pnlPct       = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+    const realizedPnl  = sales.reduce((acc, s) => acc + s.realizedPnl, 0);
 
-    return { totalValue, totalCost, totalDiv, pnl, pnlPct };
-  }, [stockStats, dividends]);
+    // DRIP istatistikleri
+    const totalDrip = purchases
+      .filter(p => p.isDrip)
+      .reduce((acc, p) => acc + p.qty * p.price, 0);
+
+    return { totalValue, totalCost, totalDiv, pnl, pnlPct, realizedPnl, totalDrip };
+  }, [stockStats, dividends, sales, purchases]);
 
   // ─── Fiyat Yenileme ────────────────────────────────────────────────────────
   const refreshPrices = useCallback(async () => {
@@ -88,8 +114,10 @@ export function usePortfolio() {
       // Tarihsel veri kaydet
       const newTotalValue = stocks.reduce((acc, s) => {
         const price = priceMap[s.ticker] ?? s.lastPrice ?? 0;
-        const qty   = purchases.filter(p => p.stockId === s.id).reduce((sum, p) => sum + p.qty, 0);
-        return acc + qty * price;
+        const stockSales = sales.filter(sl => sl.stockId === s.id);
+        const soldQty = stockSales.reduce((sum, sl) => sum + sl.qty, 0);
+        const qty = purchases.filter(p => p.stockId === s.id).reduce((sum, p) => sum + p.qty, 0) - soldQty;
+        return acc + Math.max(0, qty) * price;
       }, 0);
       const newTotalCost = purchases.reduce((acc, p) => acc + p.qty * p.price, 0);
       const today = new Date().toISOString().split('T')[0];
@@ -103,7 +131,7 @@ export function usePortfolio() {
     } finally {
       setLoading(false);
     }
-  }, [stocks, purchases]);
+  }, [stocks, purchases, sales]);
 
   // ─── Memory-Leak-Safe Interval (ref pattern) ──────────────────────────────
   const refreshPricesRef = useRef(refreshPrices);
@@ -135,7 +163,7 @@ export function usePortfolio() {
     }, 15 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, []); // artık bağımlılık yok — memory leak önlendi
+  }, []);
 
   // ─── İlk Yükleme ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -151,6 +179,7 @@ export function usePortfolio() {
     dividends,
     goals,
     history,
+    sales,
     stockStats,
     summary,
     loading,

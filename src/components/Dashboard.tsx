@@ -45,7 +45,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
-    stocks, purchases, dividends, goals, history,
+    stocks, purchases, dividends, goals, history, sales,
     stockStats, summary, loading, lastUpdated, refreshPrices,
   } = usePortfolio();
 
@@ -104,6 +104,7 @@ export default function Dashboard() {
       if (e.key === 'n' && !e.metaKey && !e.ctrlKey) setIsAddingStock(true);
       if (e.key === 'd' && !e.metaKey && !e.ctrlKey) setIsAddingDividend(true);
       if (e.key === 'r' && !e.metaKey && !e.ctrlKey) refreshPrices();
+      if (e.key === 't' && !e.metaKey && !e.ctrlKey) setTheme(th => th === 'dark' ? 'light' : 'dark');
       if (e.key === 'Escape') {
         setIsAddingStock(false); setIsAddingPurchase(false);
         setIsAddingDividend(false); setIsAddingGoal(false);
@@ -302,6 +303,8 @@ export default function Dashboard() {
         {activeTab === 'div' && (
           <DividendsTab
             dividends={dividends}
+            purchases={purchases}
+            stocks={stocks}
             searchQuery={searchQuery}
             setIsAddingDividend={setIsAddingDividend}
             onDeleteDividend={(id) => {
@@ -321,6 +324,7 @@ export default function Dashboard() {
             stockStats={stockStats as StockStat[]}
             dividends={dividends}
             purchases={purchases}
+            sales={sales}
             summary={summary}
           />
         )}

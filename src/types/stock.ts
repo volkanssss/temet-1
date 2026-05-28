@@ -13,6 +13,8 @@ export interface StockHolding {
 
 export interface StockStat extends StockHolding {
   qty: number;
+  boughtQty: number;
+  soldQty: number;
   avgCost: number;
   totalCost: number;
   currentPrice: number;
@@ -20,6 +22,8 @@ export interface StockStat extends StockHolding {
   profitLoss: number;
   profitLossPct: number;
   totalDiv: number;
+  realizedPnl: number;
+  totalDrip: number;
 }
 
 export interface Purchase {
@@ -72,6 +76,8 @@ export interface PortfolioSummary {
   totalDiv: number;
   pnl: number;
   pnlPct: number;
+  realizedPnl: number;
+  totalDrip: number;
 }
 
 export interface PortfolioHistory {
