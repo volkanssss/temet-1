@@ -39,14 +39,37 @@ export default function AddPurchaseModal({
               onError('Adet ve fiyat 0\'dan büyük olmalıdır!');
               return;
             }
-            await dbService.add('purchases', {
+            const isDripChecked = data.isDrip === 'on';
+            const newPurchase = await dbService.add('purchases', {
               stockId,
               qty,
               price,
               date:   data.date,
               note:   data.note || '',
-              isDrip: data.isDrip === 'on',
+              isDrip: isDripChecked,
             });
+
+            if (isDripChecked) {
+              const netVal = qty * price;
+              const newDiv = await dbService.add('dividends', {
+                stockId,
+                ticker:  stock?.ticker || '',
+                date:    data.date,
+                ps:      price,
+                qty:     qty,
+                net:     netVal,
+                tax:     0,
+                gross:   netVal,
+                type:    'Nakit',
+                note:    `DRIP Alımı otomatik kaydı. ${data.note || ''} [DRIP_REF:${newPurchase.id}]`.trim(),
+              });
+
+              // Alım notunu da güncelle (çift yönlü silme için)
+              await dbService.update('purchases', newPurchase.id, {
+                note: `${data.note || ''} [DIV_REF:${newDiv.id}]`.trim()
+              });
+            }
+
             onClose();
             onSuccess(`${qty} lot alım eklendi!`);
           } catch (err: any) {

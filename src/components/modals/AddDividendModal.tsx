@@ -5,6 +5,7 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import { dbService } from '../../services/db';
 import { StockHolding } from '../../types/stock';
+import { formatCurrency } from '../../lib/utils';
 
 interface AddDividendModalProps {
   stocks: StockHolding[];
@@ -20,12 +21,35 @@ export default function AddDividendModal({ stocks, onClose, onSuccess, onError }
   const [net, setNet]     = useState('');
   const [tax, setTax]     = useState('0');
 
+  // DRIP States
+  const [isDrip, setIsDrip] = useState(false);
+  const [dripPrice, setDripPrice] = useState('');
+  const [dripQty, setDripQty] = useState('');
+
   // ps × qty değişince net'i otomatik hesapla
   const handleAutoCalc = (newPs: string, newQty: string) => {
     const p = parseFloat(newPs);
     const q = parseFloat(newQty);
     if (!isNaN(p) && !isNaN(q) && p > 0 && q > 0) {
-      setNet((p * q).toFixed(2));
+      const calculatedNet = (p * q).toFixed(2);
+      setNet(calculatedNet);
+      
+      // DRIP miktarını da güncelle
+      if (isDrip && dripPrice) {
+        const dp = parseFloat(dripPrice);
+        if (!isNaN(dp) && dp > 0) {
+          setDripQty(Math.floor(parseFloat(calculatedNet) / dp).toString());
+        }
+      }
+    }
+  };
+
+  const handleDripPriceChange = (priceVal: string) => {
+    setDripPrice(priceVal);
+    const p = parseFloat(priceVal);
+    const n = parseFloat(net);
+    if (!isNaN(p) && p > 0 && !isNaN(n) && n > 0) {
+      setDripQty(Math.floor(n / p).toString());
     }
   };
 
@@ -51,7 +75,21 @@ export default function AddDividendModal({ stocks, onClose, onSuccess, onError }
               return;
             }
 
-            await dbService.add('dividends', {
+            if (isDrip) {
+              const dQty = Number(dripQty);
+              const dPrice = Number(dripPrice);
+              if (isNaN(dQty) || dQty <= 0 || isNaN(dPrice) || dPrice <= 0) {
+                onError('DRIP geri alım adet ve fiyatı 0\'dan büyük olmalıdır!');
+                return;
+              }
+              if (dQty * dPrice > netVal) {
+                onError('Geri alım tutarı, net temettü tutarından büyük olamaz!');
+                return;
+              }
+            }
+
+            // 1. Temettü Ekle
+            const newDiv = await dbService.add('dividends', {
               stockId: selectedStockId,
               ticker:  stock?.ticker || '',
               date:    data.date,
@@ -63,6 +101,27 @@ export default function AddDividendModal({ stocks, onClose, onSuccess, onError }
               type:    data.type,
               note:    data.note || '',
             });
+
+            // 2. Geri Alım (DRIP) seçilmişse
+            if (isDrip) {
+              const dQty = Number(dripQty);
+              const dPrice = Number(dripPrice);
+              
+              const newPurchase = await dbService.add('purchases', {
+                stockId: selectedStockId,
+                qty: dQty,
+                price: dPrice,
+                date: data.date,
+                note: `Temettü ödemesiyle otomatik geri alım. [DIV_REF:${newDiv.id}]`,
+                isDrip: true,
+              });
+
+              // Temettü kaydını güncelle (çift yönlü silme desteği için)
+              await dbService.update('dividends', newDiv.id, {
+                note: `${data.note || ''} [DRIP_REF:${newPurchase.id}]`.trim()
+              });
+            }
+
             onClose();
             onSuccess(`Temettü kaydedildi! Net: ₺${netVal.toFixed(2)}`);
           } catch (err: any) {
@@ -82,7 +141,14 @@ export default function AddDividendModal({ stocks, onClose, onSuccess, onError }
               value={selectedStockId}
               onChange={e => {
                 setSelectedStockId(e.target.value);
-                // Seçilen hissenin lot sayısını otomatik doldur (opsiyonel)
+                const stock = stocks.find(s => s.id === e.target.value);
+                if (isDrip && stock?.lastPrice) {
+                  setDripPrice(stock.lastPrice.toString());
+                  const n = parseFloat(net);
+                  if (!isNaN(n) && n > 0) {
+                    setDripQty(Math.floor(n / stock.lastPrice).toString());
+                  }
+                }
               }}
               className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 outline-none focus:border-cyan-500 transition-colors appearance-none"
             >
@@ -133,7 +199,16 @@ export default function AddDividendModal({ stocks, onClose, onSuccess, onError }
               required
               value={net}
               hint="ps × lot otomatik hesaplanır"
-              onChange={e => setNet(e.target.value)}
+              onChange={e => {
+                setNet(e.target.value);
+                const n = parseFloat(e.target.value);
+                if (isDrip && dripPrice && !isNaN(n) && n > 0) {
+                  const dp = parseFloat(dripPrice);
+                  if (dp > 0) {
+                    setDripQty(Math.floor(n / dp).toString());
+                  }
+                }
+              }}
             />
             <Input
               label="Stopaj Vergisi (₺)"
@@ -158,9 +233,76 @@ export default function AddDividendModal({ stocks, onClose, onSuccess, onError }
             defaultValue="Nakit"
           />
 
+          {/* DRIP seçeneği */}
+          <div className="pt-2 border-t border-slate-800/60">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={isDrip}
+                onChange={e => {
+                  setIsDrip(e.target.checked);
+                  if (e.target.checked && selectedStockId) {
+                    const stock = stocks.find(s => s.id === selectedStockId);
+                    const defaultPrice = stock?.lastPrice || 1;
+                    setDripPrice(defaultPrice.toString());
+                    const n = parseFloat(net);
+                    if (!isNaN(n) && n > 0) {
+                      setDripQty(Math.floor(n / defaultPrice).toString());
+                    }
+                  }
+                }}
+                className="w-4 h-4 rounded accent-emerald-500"
+              />
+              <div>
+                <div className="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">
+                  Temettü ile Geri Alım Yap (DRIP)
+                </div>
+                <div className="text-xs text-slate-500">Bu temettü ile otomatik hisse alımı kaydet</div>
+              </div>
+            </label>
+          </div>
+
+          {isDrip && (
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Birim Alım Fiyatı (₺)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required={isDrip}
+                    value={dripPrice}
+                    onChange={e => handleDripPriceChange(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-sm outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Alınan Lot (Adet)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    required={isDrip}
+                    value={dripQty}
+                    onChange={e => setDripQty(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 text-sm outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="text-[10px] text-slate-500 flex justify-between">
+                <span>Tahmini kalan nakit:</span>
+                <span className="font-semibold text-slate-400">
+                  {formatCurrency(Math.max(0, (parseFloat(net) || 0) - (parseFloat(dripQty) || 0) * (parseFloat(dripPrice) || 0)))}
+                </span>
+              </div>
+            </div>
+          )}
+
           <Input label="Not (opsiyonel)" name="note" placeholder="Açıklama..." />
         </div>
       </Modal>
     </AnimatePresence>
   );
 }
+

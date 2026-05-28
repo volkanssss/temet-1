@@ -68,6 +68,21 @@ CREATE TABLE IF NOT EXISTS portfolio_history (
   UNIQUE(user_id, date)
 );
 
+-- SALES
+CREATE TABLE IF NOT EXISTS sales (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  stock_id     UUID REFERENCES stocks(id) ON DELETE CASCADE NOT NULL,
+  ticker       TEXT NOT NULL,
+  date         DATE NOT NULL,
+  qty          FLOAT NOT NULL CHECK (qty > 0),
+  price        FLOAT NOT NULL CHECK (price >= 0),
+  cost_basis   FLOAT NOT NULL CHECK (cost_basis >= 0),
+  realized_pnl FLOAT NOT NULL,
+  note         TEXT,
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ============================================================
 -- RLS
 -- ============================================================
@@ -76,6 +91,7 @@ ALTER TABLE purchases         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dividends         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goals             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE portfolio_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales             ENABLE ROW LEVEL SECURITY;
 
 -- Stocks policies
 CREATE POLICY "stocks_select" ON stocks FOR SELECT USING (auth.uid() = user_id);
@@ -107,6 +123,12 @@ CREATE POLICY "history_insert" ON portfolio_history FOR INSERT WITH CHECK (auth.
 CREATE POLICY "history_update" ON portfolio_history FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "history_delete" ON portfolio_history FOR DELETE USING (auth.uid() = user_id);
 
+-- Sales policies
+CREATE POLICY "sales_select" ON sales FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "sales_insert" ON sales FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "sales_update" ON sales FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "sales_delete" ON sales FOR DELETE USING (auth.uid() = user_id);
+
 -- ============================================================
 -- Enable Realtime (Supabase dashboard'da da açık olmalı)
 -- ============================================================
@@ -115,3 +137,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE purchases;
 ALTER PUBLICATION supabase_realtime ADD TABLE dividends;
 ALTER PUBLICATION supabase_realtime ADD TABLE goals;
 ALTER PUBLICATION supabase_realtime ADD TABLE portfolio_history;
+ALTER PUBLICATION supabase_realtime ADD TABLE sales;

@@ -30,6 +30,20 @@ export default function ViewPurchasesModal({
   const handleDelete = async (p: Purchase) => {
     try {
       await dbService.remove('purchases', p.id);
+      
+      // DRIP ise ilişkili temettü kaydını da sil
+      if (p.isDrip) {
+        try {
+          const allDividends = await dbService.list('dividends');
+          const targetDiv = allDividends.find(d => d.note && d.note.includes(`[DRIP_REF:${p.id}]`));
+          if (targetDiv) {
+            await dbService.remove('dividends', targetDiv.id);
+          }
+        } catch (divErr) {
+          console.error('İlişkili temettü silinemedi:', divErr);
+        }
+      }
+
       onSuccess('Alım kaydı silindi.');
     } catch (err: any) {
       onError(err.message || 'Silme işlemi başarısız!');

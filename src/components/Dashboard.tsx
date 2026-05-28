@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   RefreshCcw, LogOut, Search, Sun, Moon, CheckCircle, AlertCircle,
+  Plus, X, TrendingUp,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, logout } from '../lib/supabase';
@@ -30,19 +31,27 @@ import ConfirmDialog    from './ui/ConfirmDialog';
 
 type Tab = 'dash' | 'pf' | 'div' | 'an' | 'goal' | 'cal' | 'ai';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'dash', label: 'Genel Bakış', icon: '📊' },
-  { id: 'pf',   label: 'Hisseler',    icon: '💼' },
-  { id: 'div',  label: 'Temettüler',  icon: '💰' },
-  { id: 'an',   label: 'Analitik',    icon: '📈' },
-  { id: 'goal', label: 'Hedefler',    icon: '🎯' },
-  { id: 'cal',  label: 'Takvim',      icon: '📅' },
-  { id: 'ai',   label: 'AI Asistan',  icon: '🤖' },
+const TABS: { id: Tab; label: string; short: string; icon: string }[] = [
+  { id: 'dash', label: 'Genel Bakış', short: 'Bakış',   icon: '📊' },
+  { id: 'pf',   label: 'Hisseler',    short: 'Hisse',   icon: '💼' },
+  { id: 'div',  label: 'Temettüler',  short: 'Temettü', icon: '💰' },
+  { id: 'an',   label: 'Analitik',    short: 'Analiz',  icon: '📈' },
+  { id: 'goal', label: 'Hedefler',    short: 'Hedef',   icon: '🎯' },
+  { id: 'cal',  label: 'Takvim',      short: 'Takvim',  icon: '📅' },
+  { id: 'ai',   label: 'AI Asistan',  short: 'AI',      icon: '🤖' },
 ];
 
+// FAB config — hangi sekme için FAB gösterilsin
+const FAB_CONFIG: Partial<Record<Tab, { icon: React.ReactNode; label: string; color: string }>> = {
+  pf:   { icon: <Plus size={22} />,       label: 'Hisse Ekle',   color: 'bg-cyan-500 shadow-cyan-500/40' },
+  div:  { icon: <Plus size={22} />,       label: 'Temettü Ekle', color: 'bg-emerald-500 shadow-emerald-500/40' },
+  goal: { icon: <Plus size={22} />,       label: 'Hedef Koy',    color: 'bg-violet-500 shadow-violet-500/40' },
+};
+
 export default function Dashboard() {
-  const [activeTab,   setActiveTab]   = useState<Tab>('dash');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab,        setActiveTab]        = useState<Tab>('dash');
+  const [searchQuery,      setSearchQuery]      = useState('');
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   const {
     stocks, purchases, dividends, goals, history, sales,
@@ -109,12 +118,19 @@ export default function Dashboard() {
         setIsAddingStock(false); setIsAddingPurchase(false);
         setIsAddingDividend(false); setIsAddingGoal(false);
         setIsAddingSale(false); setViewingPurchases(null);
-        setViewingStockDetails(null);
+        setViewingStockDetails(null); setShowMobileSearch(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [refreshPrices]);
+
+  // ─── FAB aksiyonu ─────────────────────────────────────────────────────────
+  const handleFab = () => {
+    if (activeTab === 'pf')   setIsAddingStock(true);
+    if (activeTab === 'div')  setIsAddingDividend(true);
+    if (activeTab === 'goal') setIsAddingGoal(true);
+  };
 
   // ─── Selected stat helper ─────────────────────────────────────────────────
   const selectedStat = viewingStockDetails
@@ -129,17 +145,20 @@ export default function Dashboard() {
     ? (stocks.find(s => s.id === viewingPurchases)?.ticker ?? '')
     : '';
 
+  const fabConfig = FAB_CONFIG[activeTab];
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+
       {/* ─── Toast ─────────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
             className={cn(
-              'fixed top-4 right-4 z-[300] flex items-center gap-3 px-5 py-3 rounded-xl font-medium text-sm shadow-xl border',
+              'fixed top-4 left-4 right-4 md:left-auto md:right-4 md:w-auto z-[300] flex items-center gap-3 px-5 py-3.5 rounded-2xl font-medium text-sm shadow-2xl border',
               toast.ok
                 ? 'bg-slate-800 text-slate-100 border-slate-700'
                 : 'bg-red-900/60 text-red-200 border-red-800'
@@ -162,28 +181,62 @@ export default function Dashboard() {
         onCancel={() => setConfirm(c => ({ ...c, open: false }))}
       />
 
+      {/* ─── Mobile Search Overlay ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showMobileSearch && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="fixed top-0 left-0 right-0 z-[200] bg-slate-950/98 backdrop-blur-xl border-b border-slate-800 px-4 py-3 flex gap-3 items-center md:hidden"
+          >
+            <Search size={16} className="text-slate-400 shrink-0" />
+            <input
+              id="mobile-search"
+              autoFocus
+              type="text"
+              placeholder="Hisse, sektör, not ara..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="flex-1 bg-transparent text-slate-200 text-base outline-none placeholder:text-slate-600"
+            />
+            <button
+              onClick={() => { setShowMobileSearch(false); setSearchQuery(''); }}
+              className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400"
+            >
+              <X size={15} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── Header ────────────────────────────────────────────────────────── */}
-      <header className="px-4 md:px-6 pt-8 pb-4 sticky top-0 z-20 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800">
-        <div className="max-w-5xl mx-auto flex flex-col gap-4">
-          <div className="flex justify-between items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-800 shrink-0">
+      <header className="sticky top-0 z-[100] bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/60">
+        <div className="max-w-5xl mx-auto">
+
+          {/* ── Üst Satır ── */}
+          <div className="flex items-center gap-3 px-4 md:px-6 pt-4 pb-3">
+            {/* Logo + Başlık */}
+            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+              <div className="w-8 h-8 rounded-xl overflow-hidden border border-slate-800 shrink-0">
                 <img src="/icon.png" alt="Logo" className="w-full h-full object-cover" />
               </div>
-              <div>
-                <div className="text-slate-400 text-[10px] uppercase font-bold tracking-widest leading-none mb-0.5">
+              <div className="min-w-0">
+                <div className="text-slate-500 text-[9px] uppercase font-bold tracking-widest leading-none mb-0.5 truncate hidden sm:block">
                   Temettü Takip • {userName}
                 </div>
-                <h1 className="text-lg font-bold text-white leading-none">
+                <h1 className="text-base md:text-lg font-bold text-white leading-none truncate">
                   {TABS.find(t => t.id === activeTab)?.label}
                 </h1>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto flex-1 md:flex-none">
-              {/* Arama */}
-              <div className="relative flex-1 md:w-60">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            {/* Sağ Aksiyonlar */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Desktop Arama */}
+              <div className="relative hidden md:block w-52">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   id="global-search"
                   type="text"
@@ -194,9 +247,18 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Son güncelleme */}
+              {/* Mobil Arama Butonu */}
+              <button
+                onClick={() => setShowMobileSearch(true)}
+                className="md:hidden w-9 h-9 rounded-full bg-slate-800/70 flex items-center justify-center text-slate-400 active:scale-95 transition-all"
+                aria-label="Ara"
+              >
+                <Search size={15} />
+              </button>
+
+              {/* Son güncelleme (desktop) */}
               {lastUpdated && (
-                <div className="hidden md:block text-[10px] text-slate-600 whitespace-nowrap">
+                <div className="hidden md:flex items-center gap-1 text-[10px] text-slate-600 whitespace-nowrap">
                   {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               )}
@@ -204,7 +266,7 @@ export default function Dashboard() {
               {/* Tema */}
               <button
                 onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-                className="w-9 h-9 shrink-0 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition-all"
+                className="w-9 h-9 shrink-0 rounded-full bg-slate-800/70 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition-all"
                 title="Tema Değiştir (T)"
               >
                 {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
@@ -214,7 +276,7 @@ export default function Dashboard() {
               <button
                 onClick={refreshPrices}
                 disabled={loading}
-                className="w-9 h-9 shrink-0 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition-all"
+                className="w-9 h-9 shrink-0 rounded-full bg-slate-800/70 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition-all disabled:opacity-40"
                 title="Fiyatları Güncelle (R)"
               >
                 <RefreshCcw size={15} className={cn(loading && 'animate-spin')} />
@@ -230,7 +292,7 @@ export default function Dashboard() {
                     logout();
                   }
                 }}
-                className="w-9 h-9 shrink-0 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                className="w-9 h-9 shrink-0 rounded-full bg-slate-800/70 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-500/10 active:scale-95 transition-all"
                 title="Çıkış Yap"
               >
                 <LogOut size={15} />
@@ -238,8 +300,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="flex overflow-x-auto hide-scrollbar gap-1.5 pb-1">
+          {/* ── Desktop Tab Bar ── */}
+          <div className="hidden md:flex overflow-x-auto hide-scrollbar gap-1.5 px-6 pb-3">
             {TABS.map(tab => (
               <button
                 key={tab.id}
@@ -252,113 +314,220 @@ export default function Dashboard() {
                 )}
               >
                 <span className="text-base leading-none">{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
+
+          {/* ── Mobil: Yükleme Göstergesi ── */}
+          {loading && stocks.length > 0 && (
+            <div className="md:hidden flex items-center gap-2 px-4 pb-2 text-[10px] text-slate-500">
+              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
+              Fiyatlar güncelleniyor...
+            </div>
+          )}
         </div>
       </header>
 
       {/* ─── Content ────────────────────────────────────────────────────────── */}
-      <div className="px-4 md:px-6 py-6 max-w-5xl mx-auto pb-24">
-        {activeTab === 'dash' && (
-          <OverviewTab
-            summary={summary}
-            stockStats={stockStats as StockStat[]}
-            purchases={purchases}
-            dividends={dividends}
-            history={history}
-            lastUpdated={lastUpdated}
-            setViewingStockDetails={setViewingStockDetails}
-          />
-        )}
-        {activeTab === 'pf' && (
-          <PortfolioTab
-            stocks={stocks}
-            stockStats={stockStats as StockStat[]}
-            loading={loading}
-            searchQuery={searchQuery}
-            setIsAddingStock={setIsAddingStock}
-            setViewingStockDetails={setViewingStockDetails}
-            setSelectedStockId={setSelectedStockId}
-            setIsAddingPurchase={setIsAddingPurchase}
-            setIsAddingSale={setIsAddingSale}
-            setViewingPurchases={setViewingPurchases}
-            onDeleteStock={(id, ticker) => {
-              showConfirm(
-                `${ticker} Silinecek`,
-                `${ticker} hissesi ve tüm alım/temettü kayıtları kalıcı olarak silinecektir. Bu işlem geri alınamaz.`,
-                async () => {
-                  try {
-                    await dbService.remove('stocks', id);
-                    showToast(`${ticker} portföyden silindi.`);
-                  } catch (err: any) {
-                    showToast('Silme başarısız: ' + err.message, false);
-                  }
-                }
-              );
-            }}
-          />
-        )}
-        {activeTab === 'div' && (
-          <DividendsTab
-            dividends={dividends}
-            purchases={purchases}
-            stocks={stocks}
-            searchQuery={searchQuery}
-            setIsAddingDividend={setIsAddingDividend}
-            onDeleteDividend={(id) => {
-              showConfirm('Temettü Silinecek', 'Bu temettü kaydı silinecektir. Emin misiniz?', async () => {
-                try {
-                  await dbService.remove('dividends', id);
-                  showToast('Temettü kaydı silindi.');
-                } catch (err: any) {
-                  showToast('Silme başarısız: ' + err.message, false);
-                }
-              });
-            }}
-          />
-        )}
-        {activeTab === 'an' && (
-          <AnalyticsTab
-            stockStats={stockStats as StockStat[]}
-            dividends={dividends}
-            purchases={purchases}
-            sales={sales}
-            summary={summary}
-          />
-        )}
-        {activeTab === 'goal' && (
-          <GoalsTab
-            goals={goals}
-            summary={summary}
-            stocks={stocks}
-            dividends={dividends}
-            setIsAddingGoal={setIsAddingGoal}
-            onDeleteGoal={(id) => {
-              showConfirm('Hedef Silinecek', 'Bu hedef kalıcı olarak silinecektir.', async () => {
-                try {
-                  await dbService.remove('goals', id);
-                  showToast('Hedef silindi.');
-                } catch (err: any) {
-                  showToast('Silme başarısız: ' + err.message, false);
-                }
-              });
-            }}
-          />
-        )}
-        {activeTab === 'cal' && (
-          <CalendarTab dividends={dividends} stocks={stocks} />
-        )}
-        {activeTab === 'ai' && (
-          <AiTab
-            summary={summary}
-            stockStats={stockStats as StockStat[]}
-            dividends={dividends}
-            goals={goals}
-          />
-        )}
+      <div className="px-4 md:px-6 pt-5 pb-28 md:pb-8 max-w-5xl mx-auto">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18 }}
+          >
+            {activeTab === 'dash' && (
+              <OverviewTab
+                summary={summary}
+                stockStats={stockStats as StockStat[]}
+                purchases={purchases}
+                dividends={dividends}
+                history={history}
+                lastUpdated={lastUpdated}
+                setViewingStockDetails={setViewingStockDetails}
+              />
+            )}
+            {activeTab === 'pf' && (
+              <PortfolioTab
+                stocks={stocks}
+                stockStats={stockStats as StockStat[]}
+                loading={loading}
+                searchQuery={searchQuery}
+                setIsAddingStock={setIsAddingStock}
+                setViewingStockDetails={setViewingStockDetails}
+                setSelectedStockId={setSelectedStockId}
+                setIsAddingPurchase={setIsAddingPurchase}
+                setIsAddingSale={setIsAddingSale}
+                setViewingPurchases={setViewingPurchases}
+                onDeleteStock={(id, ticker) => {
+                  showConfirm(
+                    `${ticker} Silinecek`,
+                    `${ticker} hissesi ve tüm alım/temettü kayıtları kalıcı olarak silinecektir. Bu işlem geri alınamaz.`,
+                    async () => {
+                      try {
+                        await dbService.remove('stocks', id);
+                        showToast(`${ticker} portföyden silindi.`);
+                      } catch (err: any) {
+                        showToast('Silme başarısız: ' + err.message, false);
+                      }
+                    }
+                  );
+                }}
+              />
+            )}
+            {activeTab === 'div' && (
+              <DividendsTab
+                dividends={dividends}
+                purchases={purchases}
+                stocks={stocks}
+                searchQuery={searchQuery}
+                setIsAddingDividend={setIsAddingDividend}
+                onDeleteDividend={(id) => {
+                  const divItem = dividends.find(d => d.id === id);
+                  const hasDripRef = divItem?.note?.match(/\[DRIP_REF:([^\]]+)\]/);
+                  const dripPurchaseId = hasDripRef ? hasDripRef[1] : null;
+
+                  showConfirm(
+                    'Temettü Silinecek',
+                    dripPurchaseId
+                      ? 'Bu temettü kaydı bir DRIP alımı ile ilişkilidir. Silerseniz ilişkili alım kaydı da silinecektir. Emin misiniz?'
+                      : 'Bu temettü kaydı silinecektir. Emin misiniz?',
+                    async () => {
+                      try {
+                        await dbService.remove('dividends', id);
+                        if (dripPurchaseId) {
+                          try {
+                            await dbService.remove('purchases', dripPurchaseId);
+                          } catch (pErr) {
+                            console.error('İlişkili alım silinemedi:', pErr);
+                          }
+                        }
+                        showToast('Temettü kaydı silindi.');
+                      } catch (err: any) {
+                        showToast('Silme başarısız: ' + err.message, false);
+                      }
+                    }
+                  );
+                }}
+              />
+            )}
+            {activeTab === 'an' && (
+              <AnalyticsTab
+                stockStats={stockStats as StockStat[]}
+                dividends={dividends}
+                purchases={purchases}
+                sales={sales}
+                summary={summary}
+              />
+            )}
+            {activeTab === 'goal' && (
+              <GoalsTab
+                goals={goals}
+                summary={summary}
+                stocks={stocks}
+                dividends={dividends}
+                setIsAddingGoal={setIsAddingGoal}
+                onDeleteGoal={(id) => {
+                  showConfirm('Hedef Silinecek', 'Bu hedef kalıcı olarak silinecektir.', async () => {
+                    try {
+                      await dbService.remove('goals', id);
+                      showToast('Hedef silindi.');
+                    } catch (err: any) {
+                      showToast('Silme başarısız: ' + err.message, false);
+                    }
+                  });
+                }}
+              />
+            )}
+            {activeTab === 'cal' && (
+              <CalendarTab dividends={dividends} stocks={stocks} />
+            )}
+            {activeTab === 'ai' && (
+              <AiTab
+                summary={summary}
+                stockStats={stockStats as StockStat[]}
+                dividends={dividends}
+                goals={goals}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
+
+      {/* ─── Mobil: FAB (Floating Action Button) ───────────────────────────── */}
+      <AnimatePresence>
+        {fabConfig && (
+          <motion.button
+            key={activeTab}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            onClick={handleFab}
+            className={cn(
+              'fixed right-4 z-[90] md:hidden w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform',
+              fabConfig.color,
+              'bottom-[calc(72px+env(safe-area-inset-bottom,0px)+12px)]'
+            )}
+            aria-label={fabConfig.label}
+          >
+            {fabConfig.icon}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Mobil: Bottom Navigation Bar ─────────────────────────────────── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-slate-950/98 backdrop-blur-2xl border-t border-slate-800/60"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex h-16">
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  // Haptic feedback (destekleniyorsa)
+                  if ('vibrate' in navigator) navigator.vibrate(10);
+                }}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-all active:scale-90"
+                aria-label={tab.label}
+              >
+                {/* Aktif gösterge */}
+                {isActive && (
+                  <motion.div
+                    layoutId="nav-indicator"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-cyan-500 rounded-full"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
+
+                {/* İkon */}
+                <motion.span
+                  animate={{ scale: isActive ? 1.15 : 1, y: isActive ? -1 : 0 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                  className="text-lg leading-none"
+                >
+                  {tab.icon}
+                </motion.span>
+
+                {/* Etiket */}
+                <span className={cn(
+                  'text-[9px] font-semibold leading-none transition-colors',
+                  isActive ? 'text-cyan-400' : 'text-slate-600'
+                )}>
+                  {tab.short}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       {/* ─── Modals ─────────────────────────────────────────────────────────── */}
       <AnimatePresence>
