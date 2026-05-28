@@ -15,37 +15,31 @@ import OverviewTab   from './tabs/OverviewTab';
 import PortfolioTab  from './tabs/PortfolioTab';
 import DividendsTab  from './tabs/DividendsTab';
 import AnalyticsTab  from './tabs/AnalyticsTab';
-import GoalsTab      from './tabs/GoalsTab';
 import CalendarTab   from './tabs/CalendarTab';
-import AiTab         from './tabs/AiTab';
 
 // Modals
 import AddStockModal    from './modals/AddStockModal';
 import AddPurchaseModal from './modals/AddPurchaseModal';
 import AddDividendModal from './modals/AddDividendModal';
-import AddGoalModal     from './modals/AddGoalModal';
 import AddSaleModal     from './modals/AddSaleModal';
 import ViewPurchasesModal from './modals/ViewPurchasesModal';
 import StockDetailModal from './modals/StockDetailModal';
 import ConfirmDialog    from './ui/ConfirmDialog';
 
-type Tab = 'dash' | 'pf' | 'div' | 'an' | 'goal' | 'cal' | 'ai';
+type Tab = 'dash' | 'pf' | 'div' | 'an' | 'cal';
 
 const TABS: { id: Tab; label: string; short: string; icon: string }[] = [
   { id: 'dash', label: 'Genel Bakış', short: 'Bakış',   icon: '📊' },
   { id: 'pf',   label: 'Hisseler',    short: 'Hisse',   icon: '💼' },
   { id: 'div',  label: 'Temettüler',  short: 'Temettü', icon: '💰' },
   { id: 'an',   label: 'Analitik',    short: 'Analiz',  icon: '📈' },
-  { id: 'goal', label: 'Hedefler',    short: 'Hedef',   icon: '🎯' },
   { id: 'cal',  label: 'Takvim',      short: 'Takvim',  icon: '📅' },
-  { id: 'ai',   label: 'AI Asistan',  short: 'AI',      icon: '🤖' },
 ];
 
 // FAB config — hangi sekme için FAB gösterilsin
 const FAB_CONFIG: Partial<Record<Tab, { icon: React.ReactNode; label: string; color: string }>> = {
   pf:   { icon: <Plus size={22} />,       label: 'Hisse Ekle',   color: 'bg-cyan-500 shadow-cyan-500/40' },
   div:  { icon: <Plus size={22} />,       label: 'Temettü Ekle', color: 'bg-emerald-500 shadow-emerald-500/40' },
-  goal: { icon: <Plus size={22} />,       label: 'Hedef Koy',    color: 'bg-violet-500 shadow-violet-500/40' },
 };
 
 export default function Dashboard() {
@@ -62,7 +56,6 @@ export default function Dashboard() {
   const [isAddingStock,    setIsAddingStock]    = useState(false);
   const [isAddingPurchase, setIsAddingPurchase] = useState(false);
   const [isAddingDividend, setIsAddingDividend] = useState(false);
-  const [isAddingGoal,     setIsAddingGoal]     = useState(false);
   const [isAddingSale,     setIsAddingSale]     = useState(false);
   const [viewingPurchases, setViewingPurchases] = useState<string | null>(null);
   const [viewingStockDetails, setViewingStockDetails] = useState<string | null>(null);
@@ -116,7 +109,7 @@ export default function Dashboard() {
       if (e.key === 't' && !e.metaKey && !e.ctrlKey) setTheme(th => th === 'dark' ? 'light' : 'dark');
       if (e.key === 'Escape') {
         setIsAddingStock(false); setIsAddingPurchase(false);
-        setIsAddingDividend(false); setIsAddingGoal(false);
+        setIsAddingDividend(false);
         setIsAddingSale(false); setViewingPurchases(null);
         setViewingStockDetails(null); setShowMobileSearch(false);
       }
@@ -129,7 +122,6 @@ export default function Dashboard() {
   const handleFab = () => {
     if (activeTab === 'pf')   setIsAddingStock(true);
     if (activeTab === 'div')  setIsAddingDividend(true);
-    if (activeTab === 'goal') setIsAddingGoal(true);
   };
 
   // ─── Selected stat helper ─────────────────────────────────────────────────
@@ -423,35 +415,8 @@ export default function Dashboard() {
                 summary={summary}
               />
             )}
-            {activeTab === 'goal' && (
-              <GoalsTab
-                goals={goals}
-                summary={summary}
-                stocks={stocks}
-                dividends={dividends}
-                setIsAddingGoal={setIsAddingGoal}
-                onDeleteGoal={(id) => {
-                  showConfirm('Hedef Silinecek', 'Bu hedef kalıcı olarak silinecektir.', async () => {
-                    try {
-                      await dbService.remove('goals', id);
-                      showToast('Hedef silindi.');
-                    } catch (err: any) {
-                      showToast('Silme başarısız: ' + err.message, false);
-                    }
-                  });
-                }}
-              />
-            )}
             {activeTab === 'cal' && (
               <CalendarTab dividends={dividends} stocks={stocks} />
-            )}
-            {activeTab === 'ai' && (
-              <AiTab
-                summary={summary}
-                stockStats={stockStats as StockStat[]}
-                dividends={dividends}
-                goals={goals}
-              />
             )}
           </motion.div>
         </AnimatePresence>
@@ -555,13 +520,7 @@ export default function Dashboard() {
             onError={msg => showToast(msg, false)}
           />
         )}
-        {isAddingGoal && (
-          <AddGoalModal
-            onClose={() => setIsAddingGoal(false)}
-            onSuccess={showToast}
-            onError={msg => showToast(msg, false)}
-          />
-        )}
+
         {isAddingSale && saleTargetStat && (
           <AddSaleModal
             stockStat={saleTargetStat}
