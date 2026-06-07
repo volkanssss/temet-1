@@ -66,19 +66,27 @@ export default function PortfolioTab({
     return list;
   }, [stockStats, searchQuery, sortField, sortDir, selectedSector]);
 
-  const SortBtn = ({ field, label }: { field: SortField; label: string }) => (
-    <th
-      className="px-4 py-3 font-medium cursor-pointer hover:text-white transition-colors whitespace-nowrap select-none"
-      onClick={() => handleSort(field)}
-    >
-      <span className="flex items-center gap-1">
-        {label}
-        {sortField === field
-          ? <span className="text-cyan-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
-          : <ArrowUpDown size={11} className="opacity-30" />}
-      </span>
-    </th>
-  );
+  const SortBtn = ({ field, label }: { field: SortField; label: string }) => {
+    const isSorted = sortField === field;
+    return (
+      <th
+        className={cn(
+          "px-4 py-3.5 font-bold cursor-pointer hover:text-white transition-colors whitespace-nowrap select-none",
+          isSorted ? "text-cyan-400 bg-slate-900/40" : "text-slate-400"
+        )}
+        onClick={() => handleSort(field)}
+      >
+        <span className="flex items-center gap-1.5">
+          {label}
+          {isSorted ? (
+            <span className="text-cyan-400 font-extrabold">{sortDir === 'asc' ? '↑' : '↓'}</span>
+          ) : (
+            <ArrowUpDown size={10} className="opacity-30" />
+          )}
+        </span>
+      </th>
+    );
+  };
 
   const totalValue = stockStats.reduce((a, s) => a + s.currentValue, 0);
   const totalPnl   = stockStats.reduce((a, s) => a + s.profitLoss, 0);
@@ -86,28 +94,51 @@ export default function PortfolioTab({
   const pnlPct     = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* Başlık + Ekle */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+      <div className="flex justify-between items-center gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-slate-200">Varlık Listesi</h2>
-          {stocks.length > 0 && (
-            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-              <span>{stocks.length} hisse</span>
-              <span className={cn(totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400', 'font-medium')}>
-                {totalPnl >= 0 ? '▲' : '▼'} {formatPercentage(Math.abs(pnlPct))} ({totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)})
-              </span>
-            </div>
-          )}
+          <h2 className="text-xl font-bold text-white tracking-tight">Varlık Listesi</h2>
+          <p className="text-[10px] text-slate-500 font-black mt-1 uppercase tracking-widest">{stocks.length} AKTİF HİSSE</p>
         </div>
-        {/* Desktop ekle butonu (mobilde FAB kullanılıyor) */}
         <button
           onClick={() => setIsAddingStock(true)}
-          className="hidden md:flex px-5 py-2.5 rounded-full bg-cyan-500 text-slate-950 font-bold text-sm hover:bg-cyan-400 transition-all items-center gap-2 shadow-lg shadow-cyan-500/20"
+          className="hidden md:flex px-5 py-2.5 rounded-full bg-cyan-500 text-slate-950 font-bold text-sm hover:bg-cyan-400 transition-all items-center gap-2 shadow-lg shadow-cyan-500/20 active:scale-95"
         >
           <Plus size={15} /> Hisse Ekle <span className="opacity-50 text-xs font-normal">(N)</span>
         </button>
       </div>
+
+      {/* Mini Kartlar Grid */}
+      {stocks.length > 0 && (
+        <div className="grid grid-cols-3 gap-4">
+          <div className="premium-card p-4 flex flex-col justify-between min-h-[90px] border border-slate-800/40">
+            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Toplam Maliyet</span>
+            <div className="text-base md:text-lg font-extrabold text-slate-200 tabular-nums mt-1">{formatCurrency(totalCost)}</div>
+          </div>
+          <div className="premium-card p-4 flex flex-col justify-between min-h-[90px] border border-slate-800/40">
+            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Portföy Değeri</span>
+            <div className="text-base md:text-lg font-extrabold text-white tabular-nums mt-1">{formatCurrency(totalValue)}</div>
+          </div>
+          <div className={cn(
+            "premium-card p-4 flex flex-col justify-between min-h-[90px] border transition-colors",
+            totalPnl >= 0 ? "border-emerald-500/20 bg-emerald-500/3" : "border-red-500/20 bg-red-500/3"
+          )}>
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Toplam K/Z</span>
+              <span className={cn(
+                "text-[8px] font-black px-1.5 py-0.5 rounded-md border leading-none",
+                totalPnl >= 0 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25" : "bg-red-500/10 text-red-400 border-red-500/25"
+              )}>
+                {totalPnl >= 0 ? '+' : ''}{formatPercentage(pnlPct)}
+              </span>
+            </div>
+            <div className={cn("text-base md:text-lg font-black tabular-nums mt-1", totalPnl >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {totalPnl >= 0 ? '+' : ''}{formatCurrency(totalPnl)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sektör Filtreleri */}
       {sectors.length > 2 && (
@@ -119,12 +150,19 @@ export default function PortfolioTab({
                 key={sec}
                 onClick={() => setSelectedSector(sec)}
                 className={cn(
-                  'px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shrink-0',
+                  'px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shrink-0 relative',
                   isSel
-                    ? 'bg-cyan-500 text-slate-950 border-cyan-500 shadow-lg shadow-cyan-500/20'
+                    ? 'text-slate-950 border-transparent z-10'
                     : 'bg-slate-900 text-slate-400 border-slate-800/80 hover:border-slate-700 hover:text-slate-200'
                 )}
               >
+                {isSel && (
+                  <motion.div
+                    layoutId="active-sector"
+                    className="absolute inset-0 bg-cyan-500 rounded-full -z-10 shadow-lg shadow-cyan-500/20"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
                 {sec}
               </button>
             );
@@ -148,60 +186,88 @@ export default function PortfolioTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/40">
-            {sortedFiltered.map(s => (
-              <tr
-                key={s.id}
-                onClick={() => setViewingStockDetails(s.id)}
-                className="hover:bg-slate-800/50 transition-colors cursor-pointer group"
-              >
-                <td className="px-6 py-4">
-                  <div className="font-bold text-slate-100 group-hover:text-white transition-colors">{s.ticker}</div>
-                  <div className="text-[10px] text-slate-500 font-semibold truncate max-w-[140px] mt-0.5">{s.name}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-xs px-2.5 py-1 rounded-lg bg-slate-800/60 text-slate-400 border border-slate-700/20">{s.sector}</span>
-                </td>
-                <td className="px-6 py-4 font-bold text-slate-200 tabular-nums">{s.qty}</td>
-                <td className="px-6 py-4 text-slate-300 tabular-nums">{formatCurrency(s.avgCost)}</td>
-                <td className="px-6 py-4 text-slate-300 tabular-nums">
-                  {s.lastPrice
-                    ? formatCurrency(s.lastPrice)
-                    : <span className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1 rounded border border-slate-800/50">—</span>}
-                </td>
-                <td className="px-6 py-4 font-extrabold text-white tabular-nums">{formatCurrency(s.currentValue)}</td>
-                <td className="px-6 py-4">
-                  <span className={cn(
-                    'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border',
-                    s.profitLoss >= 0 
-                      ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10' 
-                      : 'bg-red-500/5 text-red-400 border-red-500/10'
-                  )}>
-                    {s.profitLoss >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                    {formatPercentage(Math.abs(s.profitLossPct))}
-                  </span>
-                </td>
-                <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
-                  <div className="flex justify-end gap-1.5">
-                    <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }}
-                      className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 hover:border-emerald-500/30 transition-all border border-slate-700/30 active:scale-95" title="Alım Ekle">
-                      <Plus size={13} />
-                    </button>
-                    <button onClick={() => { setSelectedStockId(s.id); setIsAddingSale(true); }}
-                      className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-amber-400 hover:bg-slate-700 hover:border-amber-500/30 transition-all border border-slate-700/30 active:scale-95" title="Satış Ekle">
-                      <TrendingDown size={13} />
-                    </button>
-                    <button onClick={() => setViewingPurchases(s.id)}
-                      className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-blue-400 hover:bg-slate-700 hover:border-blue-500/30 transition-all border border-slate-700/30 active:scale-95" title="Alımları Gör">
-                      <Edit2 size={13} />
-                    </button>
-                    <button onClick={() => onDeleteStock(s.id, s.ticker)}
-                      className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-red-400 hover:bg-slate-700 hover:border-red-500/30 transition-all border border-slate-700/30 active:scale-95" title="Sil">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {sortedFiltered.map(s => {
+              const weight = totalValue > 0 ? (s.currentValue / totalValue) * 100 : 0;
+              const isSortedCol = (f: SortField) => sortField === f ? 'bg-slate-900/10' : '';
+              return (
+                <tr
+                  key={s.id}
+                  onClick={() => setViewingStockDetails(s.id)}
+                  className="hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                >
+                  <td className={cn("px-6 py-4", isSortedCol('ticker'))}>
+                    <div className="font-bold text-slate-100 group-hover:text-cyan-400 transition-colors flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_6px_rgba(6,182,212,0.6)]" />
+                      {s.ticker}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-semibold truncate max-w-[140px] mt-0.5 ml-3.5">{s.name}</div>
+                  </td>
+                  <td className={cn("px-6 py-4", isSortedCol('sector'))}>
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-900/60 text-slate-400 border border-slate-800/60">{s.sector}</span>
+                  </td>
+                  <td className={cn("px-6 py-4 font-bold text-slate-200 tabular-nums", isSortedCol('qty'))}>{s.qty}</td>
+                  <td className={cn("px-6 py-4 text-slate-300 tabular-nums", isSortedCol('avgCost'))}>{formatCurrency(s.avgCost)}</td>
+                  <td className={cn("px-6 py-4 tabular-nums", isSortedCol('lastPrice'))}>
+                    {s.lastPrice ? (
+                      <div>
+                        <div className="font-bold text-slate-200">{formatCurrency(s.lastPrice)}</div>
+                        {s.dailyChangePct != null && (
+                          <div className={cn(
+                            "text-[9px] font-bold mt-0.5 flex items-center gap-0.5 leading-none",
+                            s.dailyChangePct >= 0 ? "text-emerald-400" : "text-red-400"
+                          )}>
+                            {s.dailyChangePct >= 0 ? '▲' : '▼'}{Math.abs(s.dailyChangePct).toFixed(2)}%
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-655 bg-slate-900 px-2 py-1 rounded border border-slate-800/50">—</span>
+                    )}
+                  </td>
+                  <td className={cn("px-6 py-4 tabular-nums", isSortedCol('currentValue'))}>
+                    <div className="font-extrabold text-white">{formatCurrency(s.currentValue)}</div>
+                    {/* PC Portföy Ağırlık Çubuğu */}
+                    <div className="flex items-center gap-2 mt-1 w-24">
+                      <div className="h-1 bg-slate-950/60 border border-slate-800/40 rounded-full flex-1 overflow-hidden">
+                        <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${Math.min(weight, 100)}%` }} />
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-bold tabular-nums">{weight.toFixed(1)}%</span>
+                    </div>
+                  </td>
+                  <td className={cn("px-6 py-4", isSortedCol('profitLossPct'))}>
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border',
+                      s.profitLoss >= 0 
+                        ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10' 
+                        : 'bg-red-500/5 text-red-400 border-red-500/10'
+                    )}>
+                      {s.profitLoss >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                      {formatPercentage(Math.abs(s.profitLossPct))}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-end gap-1.5">
+                      <button onClick={() => { setSelectedStockId(s.id); setIsAddingPurchase(true); }}
+                        className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 hover:border-emerald-500/30 transition-all border border-slate-700/30 active:scale-95" title="Alım Ekle">
+                        <Plus size={13} />
+                      </button>
+                      <button onClick={() => { setSelectedStockId(s.id); setIsAddingSale(true); }}
+                        className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-amber-400 hover:bg-slate-700 hover:border-amber-500/30 transition-all border border-slate-700/30 active:scale-95" title="Satış Ekle">
+                        <TrendingDown size={13} />
+                      </button>
+                      <button onClick={() => setViewingPurchases(s.id)}
+                        className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-blue-400 hover:bg-slate-700 hover:border-blue-500/30 transition-all border border-slate-700/30 active:scale-95" title="Alımları Gör">
+                        <Edit2 size={13} />
+                      </button>
+                      <button onClick={() => onDeleteStock(s.id, s.ticker)}
+                        className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-red-400 hover:bg-slate-700 hover:border-red-500/30 transition-all border border-slate-700/30 active:scale-95" title="Sil">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -226,7 +292,12 @@ export default function PortfolioTab({
               {/* ── Üst: Ticker + K/Z Badge ── */}
               <div className="px-6 pt-6 pb-4 flex justify-between items-start">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 border border-slate-650 flex items-center justify-center font-bold text-sm text-slate-200 shrink-0">
+                  <div className={cn(
+                    "w-11 h-11 rounded-2xl border flex items-center justify-center font-black text-sm shrink-0 transition-colors",
+                    isUp 
+                      ? "bg-gradient-to-br from-slate-900 to-emerald-950/20 border-emerald-500/20 text-emerald-400" 
+                      : "bg-gradient-to-br from-slate-900 to-red-950/20 border-red-500/20 text-red-400"
+                  )}>
                     {s.ticker.slice(0, 2)}
                   </div>
                   <div>
@@ -273,12 +344,27 @@ export default function PortfolioTab({
                 {[
                   { label: 'Lot',        value: `${s.qty}` },
                   { label: 'Ort. Mal.', value: formatCurrency(s.avgCost) },
-                  { label: 'Fiyat',     value: s.lastPrice ? formatCurrency(s.lastPrice) : '—' },
+                  { 
+                    label: 'Fiyat',     
+                    value: s.lastPrice ? (
+                      <span className="flex flex-col items-center">
+                        <span>{formatCurrency(s.lastPrice)}</span>
+                        {s.dailyChangePct != null && (
+                          <span className={cn(
+                            "text-[8px] font-bold mt-0.5 leading-none",
+                            s.dailyChangePct >= 0 ? "text-emerald-400" : "text-red-400"
+                          )}>
+                            {s.dailyChangePct >= 0 ? '▲' : '▼'}{Math.abs(s.dailyChangePct).toFixed(2)}%
+                          </span>
+                        )}
+                      </span>
+                    ) : '—'
+                  },
                   { label: 'Sektör',    value: s.sector },
                 ].map(item => (
-                  <div key={item.label} className="bg-slate-950/30 rounded-2xl py-3 px-2 text-center border border-slate-800/30">
-                    <div className="text-[8px] text-slate-500 uppercase font-bold mb-1.5 leading-tight tracking-wide">{item.label}</div>
-                    <div className="text-[10px] font-extrabold text-slate-200 truncate">{item.value}</div>
+                  <div key={item.label} className="bg-slate-950/30 rounded-2xl py-3 px-2 text-center border border-slate-800/30 flex flex-col justify-center min-h-[52px]">
+                    <div className="text-[8px] text-slate-500 uppercase font-bold mb-1 leading-tight tracking-wide">{item.label}</div>
+                    <div className="text-[10px] font-extrabold text-slate-200 leading-tight">{item.value}</div>
                   </div>
                 ))}
               </div>
