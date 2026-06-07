@@ -175,13 +175,35 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
     );
   };
 
+  // Sağlık ve Risk Raporu Hesaplamaları
+  const maxSectorWeight = sectorsData.length > 0 ? ((sectorsData[0][1] as number) / (totalVal || 1)) * 100 : 0;
+  const maxStockWeight = stockStats.length > 0 ? (Math.max(...stockStats.map(s => s.currentValue)) / (totalVal || 1)) * 100 : 0;
+  const maxStockTicker = stockStats.length > 0 
+    ? stockStats.reduce((max, s) => s.currentValue > max.currentValue ? s : max, stockStats[0]).ticker
+    : '';
+
+  const sectorRisk = maxSectorWeight > 35;
+  const stockRisk = maxStockWeight > 20;
+  const diversityRisk = stockStats.length < 4;
+
+  const getRiskAdvice = () => {
+    if (stockStats.length === 0) return 'Portföyünüzde henüz hisse bulunmuyor.';
+    const advices = [];
+    if (sectorRisk) advices.push(`En yoğun sektörünüz olan "${sectorsData[0][0]}" portföyün %${maxSectorWeight.toFixed(0)}'ini kaplıyor.`);
+    if (stockRisk) advices.push(`${maxStockTicker} hissesi tek başına portföyün %${maxStockWeight.toFixed(0)}'ini oluşturuyor.`);
+    if (diversityRisk) advices.push(`Hisse sayınız (${stockStats.length}) düşük olduğu için risk dağılımı zayıf.`);
+    
+    if (advices.length === 0) return 'Tebrikler! Portföyünüzün dağılımı, çeşitliliği ve risk seviyesi ideal dengede duruyor.';
+    return `Öneri: ${advices.join(' Ayrıca, ')} Dağılımı dengelemek için portföyünüzü çeşitlendirebilirsiniz.`;
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
 
-      {/* ─── Üst Kısım: Çeşitlendirme ve Sektör Dağılımı ─── */}
+      {/* ─── Üst Kısım: Çeşitlendirme, Risk Raporu ve Sektör Dağılımı ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Çeşitlendirme Skoru */}
-        <div className="premium-card p-6 shadow-md border border-slate-800/40 text-center flex flex-col justify-between min-h-[220px]">
+        <div className="premium-card p-5 shadow-md border border-slate-800/40 text-center flex flex-col justify-between min-h-[230px]">
           <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-2">Çeşitlendirme Skoru</div>
           <div className="relative w-24 h-24 mx-auto mb-3">
             <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
@@ -204,25 +226,76 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
           </div>
         </div>
 
+        {/* Portföy Sağlık Raporu & Risk Analizi */}
+        <div className="premium-card p-5 shadow-md border border-slate-800/40 flex flex-col justify-between min-h-[230px]">
+          <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Risk & Sağlık Raporu</div>
+          
+          <div className="space-y-2.5 my-auto">
+            {/* Sektör Riski */}
+            <div className="flex justify-between items-center text-[10px] font-bold">
+              <span className="text-slate-400">Sektör Dağılımı:</span>
+              <span className={cn(
+                "px-2 py-0.5 rounded-lg border",
+                sectorRisk 
+                  ? "bg-red-500/10 text-red-400 border-red-500/25" 
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+              )}>
+                {sectorRisk ? `Yoğun (%${maxSectorWeight.toFixed(0)})` : "Dengeli"}
+              </span>
+            </div>
+
+            {/* Hisse Riski */}
+            <div className="flex justify-between items-center text-[10px] font-bold">
+              <span className="text-slate-400">Hisse Yoğunluğu:</span>
+              <span className={cn(
+                "px-2 py-0.5 rounded-lg border",
+                stockRisk 
+                  ? "bg-red-500/10 text-red-400 border-red-500/25" 
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+              )}>
+                {stockRisk ? `${maxStockTicker} (%${maxStockWeight.toFixed(0)})` : "Dengeli"}
+              </span>
+            </div>
+
+            {/* Çeşitlilik Riski */}
+            <div className="flex justify-between items-center text-[10px] font-bold">
+              <span className="text-slate-400">Kaynak Çeşitliliği:</span>
+              <span className={cn(
+                "px-2 py-0.5 rounded-lg border",
+                diversityRisk 
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/25" 
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+              )}>
+                {diversityRisk ? `${stockStats.length} Hisse (Düşük)` : "Yeterli"}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-[10px] leading-relaxed text-slate-400 border-t border-slate-900 pt-2 font-medium">
+            {getRiskAdvice()}
+          </div>
+        </div>
+
         {/* Sektörel Dağılım */}
-        <div className="premium-card p-6 shadow-md border border-slate-800/40 md:col-span-2 flex flex-col justify-between">
-          <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-4">Sektörel Dağılım</div>
-          <div className="space-y-3.5">
-            {sectorsData.slice(0, 5).map(([sector, value], i) => (
+        <div className="premium-card p-5 shadow-md border border-slate-800/40 flex flex-col justify-between min-h-[230px]">
+          <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-3">Sektörel Dağılım (İlk 4)</div>
+          <div className="space-y-3">
+            {sectorsData.slice(0, 4).map(([sector, value], i) => (
               <div key={sector}>
-                <div className="flex justify-between text-xs font-bold text-slate-300 mb-1.5">
-                  <span className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                <div className="flex justify-between text-[10px] font-bold text-slate-300 mb-1">
+                  <span className="flex items-center gap-1.5 truncate max-w-[130px]">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                     {sector}
                   </span>
                   <span className="text-slate-400 tabular-nums">{formatPercentage(totalVal > 0 ? ((value as number) / totalVal) * 100 : 0)}</span>
                 </div>
-                <div className="h-2 bg-slate-950/40 border border-slate-800/40 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-950/40 border border-slate-800/40 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: `${totalVal > 0 ? ((value as number) / totalVal) * 100 : 0}%`,
-                      backgroundColor: COLORS[i % COLORS.length],
+                      background: `linear-gradient(90deg, ${COLORS[i % COLORS.length]} 0%, ${COLORS[i % COLORS.length]}88 100%)`,
+                      boxShadow: `0 0 6px ${COLORS[i % COLORS.length]}33`
                     }}
                   />
                 </div>
@@ -418,6 +491,38 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Sliders (Sol Taraf) */}
           <div className="space-y-5 lg:col-span-1">
+            {/* Hazır Stratejiler */}
+            <div className="space-y-2 mb-2">
+              <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider block">Yatırım Stratejisi Presets</span>
+              <div className="flex gap-1.5 bg-slate-950/80 border border-slate-900/60 p-1 rounded-xl text-[9px] font-bold">
+                {[
+                  { label: 'Defansif', yield: 8, growth: 10 },
+                  { label: 'Dengeli', yield: 6, growth: 18 },
+                  { label: 'Büyüme', yield: 3.5, growth: 28 },
+                ].map(p => {
+                  const isActive = expectedYield === p.yield && annualGrowth === p.growth;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setExpectedYield(p.yield);
+                        setAnnualGrowth(p.growth);
+                      }}
+                      className={cn(
+                        "flex-1 py-1 rounded-lg border transition-all active:scale-[0.97] cursor-pointer",
+                        isActive
+                          ? "bg-cyan-500 text-slate-950 border-cyan-500 shadow-md shadow-cyan-500/10"
+                          : "bg-transparent text-slate-400 border-transparent hover:text-slate-200"
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Aylık Tasarruf */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-bold">
