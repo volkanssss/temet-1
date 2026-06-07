@@ -122,7 +122,7 @@ export default function PortfolioTab({
               <tr
                 key={s.id}
                 onClick={() => setViewingStockDetails(s.id)}
-                className="hover:bg-slate-850/50 transition-colors cursor-pointer group"
+                className="hover:bg-slate-800/50 transition-colors cursor-pointer group"
               >
                 <td className="px-6 py-4">
                   <div className="font-bold text-slate-100 group-hover:text-white transition-colors">{s.ticker}</div>
@@ -136,7 +136,7 @@ export default function PortfolioTab({
                 <td className="px-6 py-4 text-slate-300 tabular-nums">
                   {s.lastPrice
                     ? formatCurrency(s.lastPrice)
-                    : <span className="text-[10px] text-slate-600 bg-slate-850 px-2 py-1 rounded border border-slate-800/50">—</span>}
+                    : <span className="text-[10px] text-slate-600 bg-slate-900 px-2 py-1 rounded border border-slate-800/50">—</span>}
                 </td>
                 <td className="px-6 py-4 font-extrabold text-white tabular-nums">{formatCurrency(s.currentValue)}</td>
                 <td className="px-6 py-4">
@@ -285,7 +285,7 @@ export default function PortfolioTab({
       {stocks.length === 0 && (
         <div className="py-20 text-center premium-card">
           <div className="text-5xl mb-4">💼</div>
-          <div className="text-slate-350 font-bold mb-2">Portföyünüz henüz boş</div>
+          <div className="text-slate-400 font-bold mb-2">Portföyünüz henüz boş</div>
           <div className="text-slate-500 text-sm mb-8">İlk hissenizi ekleyerek başlayın</div>
           <button
             onClick={() => setIsAddingStock(true)}

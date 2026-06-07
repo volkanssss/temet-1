@@ -38,8 +38,8 @@ export default function StockDetailModal({
       <Modal
         title={`${stat.ticker} — Detay`}
         onClose={onClose}
-        onSave={async () => onClose()}
-        saveLabel="Kapat"
+        onSave={async () => { onClose(); }}
+        saveLabel="✕ Kapat"
         size="lg"
       >
         <div className="space-y-5">

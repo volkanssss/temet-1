@@ -16,7 +16,8 @@ export interface StockStat extends StockHolding {
   boughtQty: number;
   soldQty: number;
   avgCost: number;
-  totalCost: number;
+  totalCost: number;      // Tüm tarihsel alım maliyeti
+  remainingCost: number;  // Elde tutulan lotların maliyeti (avgCost × qty)
   currentPrice: number;
   currentValue: number;
   profitLoss: number;
@@ -72,7 +73,8 @@ export interface Goal {
 
 export interface PortfolioSummary {
   totalValue: number;
-  totalCost: number;
+  totalCost: number;      // Mevcut portföyün maliyeti (unrealized P&L için)
+  totalInvested: number;  // Toplam tarihsel yatırım (temettü verimi için)
   totalDiv: number;
   pnl: number;
   pnlPct: number;

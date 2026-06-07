@@ -102,12 +102,12 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
           <div className="space-y-3.5">
             {sectorsData.slice(0, 5).map(([sector, value], i) => (
               <div key={sector}>
-                <div className="flex justify-between text-xs font-bold text-slate-350 mb-1.5">
+                <div className="flex justify-between text-xs font-bold text-slate-300 mb-1.5">
                   <span className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i] }} />
                     {sector}
                   </span>
-                  <span className="text-slate-450 tabular-nums">{formatPercentage(totalVal > 0 ? ((value as number) / totalVal) * 100 : 0)}</span>
+                  <span className="text-slate-400 tabular-nums">{formatPercentage(totalVal > 0 ? ((value as number) / totalVal) * 100 : 0)}</span>
                 </div>
                 <div className="h-2 bg-slate-950/40 border border-slate-800/40 rounded-full overflow-hidden">
                   <div
@@ -135,7 +135,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                 <Pie
                   data={stockStats}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   innerRadius={65}
                   outerRadius={95}
                   paddingAngle={3}
@@ -153,8 +153,8 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                   verticalAlign="bottom"
                   height={36}
                   content={({ payload }) => (
-                    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 mt-4">
-                      {payload?.map((e: any, i: number) => (
+                    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-3">
+                      {payload?.slice(0, 8).map((e: any, i: number) => (
                         <div key={i} className="flex items-center gap-1.5">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color }} />
                           <span className="text-[10px] font-bold text-slate-300">{e.value}</span>
@@ -163,12 +163,15 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                           </span>
                         </div>
                       ))}
+                      {(payload?.length ?? 0) > 8 && (
+                        <span className="text-[9px] text-slate-500 font-bold">+{(payload?.length ?? 0) - 8} daha</span>
+                      )}
                     </div>
                   )}
                 />
               </RePieChart>
             </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-16">
               <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Toplam</div>
               <div className="text-lg font-black text-white tabular-nums">{formatCurrency(totalVal)}</div>
             </div>
@@ -179,25 +182,28 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
         <div className="premium-card p-6 shadow-md border border-slate-800/40">
           <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4">K/Z Sıralaması</h3>
           <div className="space-y-3.5 max-h-[240px] overflow-y-auto hide-scrollbar">
-            {topPerformers.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-3.5">
-                <div className="w-6 text-center text-xs text-slate-500 font-black">{i + 1}</div>
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-extrabold text-slate-205">{s.ticker}</span>
-                    <span className={s.profitLoss >= 0 ? 'text-emerald-450 font-black' : 'text-red-405 font-black'}>
-                      {s.profitLoss >= 0 ? '+' : ''}{formatPercentage(s.profitLossPct)}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-slate-950/40 border border-slate-850 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${s.profitLoss >= 0 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-red-500 to-pink-500'}`}
-                      style={{ width: `${Math.min(100, Math.abs(s.profitLossPct) * 2)}%` }}
-                    />
+            {topPerformers.map((s, i) => {
+              const maxPct = Math.max(...topPerformers.map(x => Math.abs(x.profitLossPct)), 1);
+              return (
+                <div key={s.id} className="flex items-center gap-3.5">
+                  <div className="w-6 text-center text-xs text-slate-500 font-black">{i + 1}</div>
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="font-extrabold text-slate-200">{s.ticker}</span>
+                      <span className={s.profitLoss >= 0 ? 'text-emerald-400 font-black' : 'text-red-400 font-black'}>
+                        {s.profitLoss >= 0 ? '+' : ''}{formatPercentage(s.profitLossPct)}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-950/40 border border-slate-800/50 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${s.profitLoss >= 0 ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-red-500 to-pink-500'}`}
+                        style={{ width: `${(Math.abs(s.profitLossPct) / maxPct) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -206,7 +212,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
       {sales.length > 0 && (
         <div className="premium-card p-6 shadow-md border border-slate-800/40">
           <div className="flex justify-between items-center mb-6 border-b border-slate-800/30 pb-4">
-            <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider">Gerçekleşen K/Z (Satışlar)</h3>
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Gerçekleşen K/Z (Satışlar)</h3>
             <span className={`text-xl font-black flex items-center gap-1.5 tabular-nums ${totalRealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {totalRealizedPnl >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
               {totalRealizedPnl >= 0 ? '+' : ''}{formatCurrency(totalRealizedPnl)}
@@ -219,7 +225,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
               {sortedSalesStats.map(s => (
                 <div key={s.ticker} className="flex items-center gap-4">
                   <div className="w-16 text-xs font-bold text-slate-200">{s.ticker}</div>
-                  <div className="flex-1 h-2.5 bg-slate-950/40 border border-slate-800/35 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2.5 bg-slate-950/40 border border-slate-800/40 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${s.realizedPnl >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
                       style={{
@@ -229,7 +235,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                       }}
                     />
                   </div>
-                  <div className={`w-28 text-right text-xs font-black tabular-nums ${s.realizedPnl >= 0 ? 'text-emerald-400' : 'text-red-405'}`}>
+                  <div className={`w-28 text-right text-xs font-black tabular-nums ${s.realizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {s.realizedPnl >= 0 ? '+' : ''}{formatCurrency(s.realizedPnl)}
                   </div>
                   <div className="text-[10px] text-slate-500 font-bold w-16 text-right uppercase tracking-wide">{s.count} satış</div>
@@ -256,7 +262,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                     <div className="text-xs text-slate-500 mt-0.5">
                       {s.date} • <span className="font-semibold text-slate-400">{s.qty} lot</span> • <span className="text-slate-400">{formatCurrency(s.price)}/lot</span>
                     </div>
-                    {s.note && <div className="text-[10px] text-slate-650 mt-1 italic">{s.note}</div>}
+                    {s.note && <div className="text-[10px] text-slate-500 mt-1 italic">{s.note}</div>}
                   </div>
                 </div>
                 <div className="text-right">
@@ -275,7 +281,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
 
       {/* ─── Aylık Temettü Bar Chart ─── */}
       <div className="premium-card p-6 shadow-md border border-slate-800/40">
-        <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider mb-6">Aylık Temettü Seyri (Son 12 Ay)</h3>
+        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-6">Aylık Temettü Seyri (Son 12 Ay)</h3>
         <div className="h-[220px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyDivs}>
@@ -296,7 +302,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
       {/* ─── Aylık Yatırım Line Chart ─── */}
       {monthlyInvest.length > 1 && (
         <div className="premium-card p-6 shadow-md border border-slate-800/40">
-          <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider mb-6">Aylık Yatırım Seyri (Son 12 Ay)</h3>
+          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-6">Aylık Yatırım Seyri (Son 12 Ay)</h3>
           <div className="h-[200px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyInvest}>
@@ -317,20 +323,20 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
       {/* ─── En Çok Temettü Veren Hisseler ─── */}
       {topDivPayers.length > 0 && topDivPayers[0].totalDiv > 0 && (
         <div className="premium-card p-6 shadow-md border border-slate-800/40">
-          <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider mb-5">Toplam Temettü — Hisse Bazlı</h3>
+          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-5">Toplam Temettü — Hisse Bazlı</h3>
           <div className="space-y-3.5">
             {topDivPayers.filter(s => s.totalDiv > 0).map((s, i) => {
               const maxDiv = topDivPayers[0].totalDiv;
               return (
                 <div key={s.id} className="flex items-center gap-4">
-                  <div className="w-16 text-xs font-bold text-slate-205">{s.ticker}</div>
-                  <div className="flex-1 h-2.5 bg-slate-950/40 border border-slate-800/35 rounded-full overflow-hidden">
+                  <div className="w-16 text-xs font-bold text-slate-200">{s.ticker}</div>
+                  <div className="flex-1 h-2.5 bg-slate-950/40 border border-slate-800/40 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
                       style={{ width: `${(s.totalDiv / maxDiv) * 100}%` }}
                     />
                   </div>
-                  <div className="w-24 text-right text-xs font-black text-emerald-450 tabular-nums">{formatCurrency(s.totalDiv)}</div>
+                  <div className="w-24 text-right text-xs font-black text-emerald-400 tabular-nums">{formatCurrency(s.totalDiv)}</div>
                 </div>
               );
             })}

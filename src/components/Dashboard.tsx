@@ -339,6 +339,7 @@ export default function Dashboard() {
                 dividends={dividends}
                 history={history}
                 lastUpdated={lastUpdated}
+                searchQuery={searchQuery}
                 setViewingStockDetails={setViewingStockDetails}
               />
             )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, RefreshCcw, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, RefreshCcw, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { Dividend, Purchase, StockHolding } from '../../types/stock';
 
@@ -149,7 +149,7 @@ export default function DividendsTab({
               <div className="text-left">
                 <div className="text-sm font-bold text-slate-200 flex items-center gap-2">
                   DRIP Geri Alım Takibi
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-450 px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
                     {dripPurchases.length} işlem
                   </span>
                 </div>
@@ -160,7 +160,7 @@ export default function DividendsTab({
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <div className="text-lg font-bold text-emerald-450 tabular-nums">{formatCurrency(totalDrip)}</div>
+                <div className="text-lg font-bold text-emerald-400 tabular-nums">{formatCurrency(totalDrip)}</div>
                 <div className="text-[10px] text-slate-500 font-semibold">{thisYear}: {formatCurrency(thisYearDrip)}</div>
               </div>
               {showDrip ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
@@ -207,7 +207,7 @@ export default function DividendsTab({
                         <div key={stock.ticker} className="bg-slate-950/20 rounded-2xl border border-slate-800/50 p-5">
                           <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-3.5">
-                              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-bold text-sm text-emerald-450">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-bold text-sm text-emerald-400">
                                 {stock.ticker.slice(0, 2)}
                               </div>
                               <div>
@@ -216,7 +216,7 @@ export default function DividendsTab({
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-bold text-emerald-405 tabular-nums">{formatCurrency(stock.total)}</div>
+                              <div className="font-bold text-emerald-400 tabular-nums">{formatCurrency(stock.total)}</div>
                               <div className="text-[10px] text-slate-500 font-medium">{stock.totalQty} lot • {stock.purchases.length} işlem</div>
                             </div>
                           </div>
@@ -224,7 +224,7 @@ export default function DividendsTab({
                           {/* İlerleme çubuğu */}
                           <div className="h-1.5 bg-slate-800/40 rounded-full overflow-hidden mb-4 border border-slate-700/10">
                             <div
-                              className="h-full bg-emerald-550 rounded-full transition-all duration-500"
+                              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                               style={{ width: `${(stock.total / maxDrip) * 100}%` }}
                             />
                           </div>
@@ -237,7 +237,7 @@ export default function DividendsTab({
                                 <div key={i} className="flex justify-between items-center text-xs bg-slate-900/30 px-4 py-2.5 rounded-xl border border-slate-800/30">
                                   <div className="flex items-center gap-2.5">
                                     <RefreshCcw size={10} className="text-emerald-500" />
-                                    <span className="text-slate-450 font-medium">{p.date}</span>
+                                    <span className="text-slate-400 font-medium">{p.date}</span>
                                     <span className="text-slate-300 font-bold tabular-nums">{p.qty} lot</span>
                                     <span className="text-slate-500 font-semibold">@{formatCurrency(p.price)}</span>
                                   </div>
@@ -286,7 +286,7 @@ export default function DividendsTab({
           {dividends.length > 0 && (
             <button
               onClick={() => exportDividendsCSV(dividends)}
-              className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-emerald-450 hover:bg-slate-700 transition-all border border-slate-700/55 active:scale-95"
+              className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 transition-all border border-slate-700/50 active:scale-95"
               title="CSV olarak indir"
             >
               <Download size={14} />
@@ -294,7 +294,7 @@ export default function DividendsTab({
           )}
           <button
             onClick={() => setIsAddingDividend(true)}
-            className="px-5 py-2.5 bg-slate-850 hover:bg-slate-750 text-slate-200 text-xs font-bold uppercase tracking-wider rounded-full transition-all border border-slate-750 active:scale-95 shadow-md"
+            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold uppercase tracking-wider rounded-full transition-all border border-slate-800 active:scale-95 shadow-md"
           >
             + Temettü Ekle
           </button>
@@ -321,13 +321,14 @@ export default function DividendsTab({
                   </div>
                 </div>
               </div>
-              <div className="text-right flex flex-col items-end gap-1">
+              <div className="text-right flex flex-col items-end gap-2">
                 <div className="text-lg font-extrabold text-emerald-400 tabular-nums">{formatCurrency(d.net)}</div>
                 <button
                   onClick={() => onDeleteDividend(d.id)}
-                  className="text-[10px] font-bold text-slate-600 hover:text-red-400 transition-colors uppercase tracking-wider"
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-800/80 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all border border-slate-700/30 active:scale-95"
+                  title="Temettü Sil"
                 >
-                  sil
+                  <Trash2 size={13} />
                 </button>
               </div>
             </div>

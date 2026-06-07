@@ -14,6 +14,7 @@ type OverviewTabProps = {
   dividends: Dividend[];
   history: PortfolioHistory[];
   lastUpdated: Date | null;
+  searchQuery?: string;
   setViewingStockDetails: (id: string) => void;
 };
 
@@ -38,7 +39,7 @@ function exportPortfolioCSV(stockStats: StockStat[]) {
 }
 
 export default function OverviewTab({
-  summary, stockStats, purchases, dividends, history, lastUpdated, setViewingStockDetails,
+  summary, stockStats, purchases, dividends, history, lastUpdated, searchQuery = '', setViewingStockDetails,
 }: OverviewTabProps) {
   const [summaryRange, setSummaryRange] = useState<'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('all');
 
@@ -109,6 +110,15 @@ export default function OverviewTab({
   }, {} as Record<string, { total: number; drip: number }>);
   const sortedMonths = Object.entries(groupedPurchases).sort((a, b) => b[0].localeCompare(a[0]));
 
+  // Arama filtresi
+  const filteredStockStats = searchQuery.trim()
+    ? stockStats.filter(s =>
+        s.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.sector.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : stockStats;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
 
@@ -143,12 +153,12 @@ export default function OverviewTab({
       {/* ─── Özet Metrikler ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
         {[
-          { icon: '💰', label: 'Ödenen Temettü', val: formatCurrency(summary.totalDiv), sub: formatPercentage(summary.totalCost > 0 ? (summary.totalDiv / summary.totalCost) * 100 : 0) + ' verimi', color: 'text-emerald-400' },
+                  { icon: '💰', label: 'Ödenen Temettü', val: formatCurrency(summary.totalDiv), sub: formatPercentage(summary.totalInvested > 0 ? (summary.totalDiv / summary.totalInvested) * 100 : 0) + ' verimi', color: 'text-emerald-400' },
           { icon: '📅', label: 'Yıllık Temettü (TTM)', val: formatCurrency(trailingAnnualDiv), sub: formatPercentage(estimatedYield) + ' tahmini', color: 'text-amber-400' },
-          { icon: '📈', label: 'Gerçekleşen K/Z', val: formatCurrency(summary.pnl), sub: formatPercentage(summary.pnlPct), color: summary.pnl >= 0 ? 'text-emerald-400' : 'text-red-400' },
-          { icon: '⚡', label: 'Günlük K/Z', val: daily ? formatCurrency(daily.val) : '₺0,00', sub: daily ? formatPercentage(daily.pct) : '0,00%', color: !daily || daily.val >= 0 ? 'text-cyan-400' : 'text-red-400' },
+          { icon: '📊', label: 'Portföy K/Z', val: formatCurrency(summary.pnl), sub: formatPercentage(summary.pnlPct), color: summary.pnl >= 0 ? 'text-emerald-400' : 'text-red-400' },
+          { icon: '⚡', label: 'Günlük K/Z', val: daily ? formatCurrency(daily.val) : '₺0,00', sub: daily ? formatPercentage(daily.pct) : '—', color: !daily || daily.val >= 0 ? 'text-cyan-400' : 'text-red-400' },
           { icon: '🔄', label: 'DRIP Geri Alımlar', val: formatCurrency(summary.totalDrip || 0), sub: 'Temettüyle alınan', color: 'text-violet-400' },
-          { icon: '💸', label: 'Satış K/Z (Gerçek)', val: formatCurrency(summary.realizedPnl || 0), sub: (summary.realizedPnl || 0) >= 0 ? 'Kâr' : 'Zarar', color: (summary.realizedPnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400' },
+          { icon: '💸', label: 'Satış K/Z (Gerçek)', val: formatCurrency(summary.realizedPnl || 0), sub: (summary.realizedPnl || 0) >= 0 ? 'Gerçekleşen kâr' : 'Gerçekleşen zarar', color: (summary.realizedPnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400' },
         ].map(m => (
           <div key={m.label} className="premium-card card-hover-effect p-6 flex flex-col justify-between min-h-[130px]">
             <div className="flex justify-between items-center mb-4">
@@ -220,49 +230,60 @@ export default function OverviewTab({
       {sortedMonths.length > 0 && (
         <div>
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Aylık Yatırım Geçmişi</h3>
-          <div className="flex overflow-x-auto hide-scrollbar gap-4 pb-3 snap-x">
-            {sortedMonths.map(([month, data]) => {
-              const net        = data.total - data.drip;
-              const isCurrentM = month === new Date().toISOString().substring(0, 7);
-              const monthName  = new Date(month + '-01').toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
-              return (
-                <div key={month} className={cn(
-                  'min-w-[280px] snap-start premium-card p-6 shrink-0 relative overflow-hidden transition-all duration-300',
-                  isCurrentM ? 'border-cyan-500/40 ring-1 ring-cyan-500/10' : ''
-                )}>
-                  {isCurrentM && <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 blur-3xl rounded-full" />}
-                  <div className={cn('text-sm font-bold mb-3 flex items-center gap-2', isCurrentM ? 'text-cyan-400' : 'text-slate-400')}>
-                    <Calendar size={14} /> {monthName}
-                  </div>
-                  <div className="text-2xl font-extrabold text-white mb-4 tabular-nums">{formatCurrency(data.total)}</div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/40">
-                      <div className="text-slate-500 mb-1 flex items-center gap-1 font-semibold uppercase tracking-wider text-[9px]"><TrendingUp size={12} /> Net</div>
-                      <div className={cn('font-bold tabular-nums', isCurrentM ? 'text-cyan-400' : 'text-slate-300')}>{formatCurrency(net)}</div>
+          <div className="relative">
+            <div className="flex overflow-x-auto hide-scrollbar gap-4 pb-3 snap-x">
+              {sortedMonths.map(([month, data]) => {
+                const net        = data.total - data.drip;
+                const isCurrentM = month === new Date().toISOString().substring(0, 7);
+                const monthName  = new Date(month + '-01').toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+                return (
+                  <div key={month} className={cn(
+                    'min-w-[280px] snap-start premium-card p-6 shrink-0 relative overflow-hidden transition-all duration-300',
+                    isCurrentM ? 'border-cyan-500/40 ring-1 ring-cyan-500/10' : ''
+                  )}>
+                    {isCurrentM && <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 blur-3xl rounded-full" />}
+                    <div className={cn('text-sm font-bold mb-3 flex items-center gap-2', isCurrentM ? 'text-cyan-400' : 'text-slate-400')}>
+                      <Calendar size={14} /> {monthName}
                     </div>
-                    <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/40">
-                      <div className="text-slate-500 mb-1 flex items-center gap-1 font-semibold uppercase tracking-wider text-[9px]"><RefreshCcw size={12} /> DRIP</div>
-                      <div className="text-slate-300 font-bold tabular-nums">{formatCurrency(data.drip)}</div>
+                    <div className="text-2xl font-extrabold text-white mb-4 tabular-nums">{formatCurrency(data.total)}</div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/40">
+                        <div className="text-slate-500 mb-1 flex items-center gap-1 font-semibold uppercase tracking-wider text-[9px]"><TrendingUp size={12} /> Net</div>
+                        <div className={cn('font-bold tabular-nums', isCurrentM ? 'text-cyan-400' : 'text-slate-300')}>{formatCurrency(net)}</div>
+                      </div>
+                      <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800/40">
+                        <div className="text-slate-500 mb-1 flex items-center gap-1 font-semibold uppercase tracking-wider text-[9px]"><RefreshCcw size={12} /> DRIP</div>
+                        <div className="text-slate-300 font-bold tabular-nums">{formatCurrency(data.drip)}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {/* Sağa kaydırma gradient ipucu */}
+            {sortedMonths.length > 1 && (
+              <div className="absolute right-0 top-0 bottom-3 w-12 bg-gradient-to-l from-slate-950/80 to-transparent pointer-events-none rounded-r-3xl" />
+            )}
           </div>
         </div>
       )}
 
       {/* ─── Hisse Özetleri ─── */}
-      {stockStats.length > 0 && (
+      {filteredStockStats.length > 0 && (
         <div>
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Hisse Özetleri</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {stockStats.map(s => (
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">
+            Hisse Özetleri
+            {searchQuery.trim() && (
+              <span className="text-slate-500 font-normal ml-2 normal-case">{filteredStockStats.length} sonuç</span>
+            )}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {filteredStockStats.map(s => (
               <motion.div
                 key={s.id}
                 whileHover={{ y: -4 }}
                 onClick={() => setViewingStockDetails(s.id)}
-                className="premium-card card-hover-effect p-5 transition-all group flex flex-col justify-between cursor-pointer min-h-[140px]"
+                className="premium-card card-hover-effect p-5 transition-all group flex flex-col justify-between cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-9 h-9 rounded-xl bg-slate-800/50 flex items-center justify-center font-bold text-xs text-slate-300 group-hover:bg-cyan-500/10 group-hover:text-cyan-400 transition-colors border border-slate-700/30">
@@ -270,8 +291,8 @@ export default function OverviewTab({
                   </div>
                   <span className={cn(
                     'text-[10px] font-extrabold px-2 py-0.5 rounded-md border',
-                    s.profitLoss >= 0 
-                      ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10' 
+                    s.profitLoss >= 0
+                      ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/10'
                       : 'bg-red-500/5 text-red-400 border-red-500/10'
                   )}>
                     {s.profitLoss >= 0 ? '+' : ''}{formatPercentage(s.profitLossPct)}
@@ -285,6 +306,13 @@ export default function OverviewTab({
               </motion.div>
             ))}
           </div>
+        </div>
+      )}
+
+      {stockStats.length > 0 && filteredStockStats.length === 0 && (
+        <div className="p-10 text-center premium-card">
+          <div className="text-2xl mb-2">🔍</div>
+          <div className="text-slate-400 text-sm">Aramanıza uygun hisse bulunamadı.</div>
         </div>
       )}
 

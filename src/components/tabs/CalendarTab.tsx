@@ -91,23 +91,26 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
         {/* Günler */}
         <div className="grid grid-cols-7">
           {/* Boş hücreler */}
-          {Array.from({ length: startOffset }).map((_, i) => (
-            <div key={`e-${i}`} className="p-2 min-h-[72px] border-b border-r border-slate-800/20 bg-slate-950/10" />
-          ))}
+          {Array.from({ length: startOffset }).map((_, i) => {
+            const col = i % 7;
+            const isLastCol = col === 6;
+            return (
+              <div key={`e-${i}`} className={`p-2 min-h-[72px] border-b border-slate-800/20 bg-slate-950/10 ${!isLastCol ? 'border-r border-slate-800/20' : ''}`} />
+            );
+          })}
 
           {/* Gerçek günler */}
           {Array.from({ length: daysCount }, (_, i) => i + 1).map(day => {
             const isToday    = year === now.getFullYear() && month === now.getMonth() && day === now.getDate();
             const hasDivs    = !!divsByDay[day];
             const dayDivs    = divsByDay[day] || [];
-            const dayTotal   = dayDivs.reduce((a, d) => a + d.net, 0);
             const col = (startOffset + day - 1) % 7;
             const isLastCol  = col === 6;
 
             return (
               <div
                 key={day}
-                className={`p-1 sm:p-2.5 min-h-[56px] sm:min-h-[80px] border-b border-slate-800/40 ${!isLastCol ? 'border-r' : ''} ${
+                className={`p-1 sm:p-2.5 min-h-[56px] sm:min-h-[80px] border-b border-slate-800/40 ${!isLastCol ? 'border-r border-slate-800/40' : ''} ${
                   isToday ? 'bg-cyan-500/5' : hasDivs ? 'bg-emerald-500/5' : ''
                 } transition-colors`}
               >
@@ -117,7 +120,7 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
                   {day}
                 </div>
                 {dayDivs.slice(0, 2).map((d, i) => (
-                  <div key={i} className="text-[8px] sm:text-[9px] bg-emerald-500/20 text-emerald-450 font-bold px-1.5 py-0.5 rounded-lg mb-1 truncate border border-emerald-500/10">
+                  <div key={i} className="text-[8px] sm:text-[9px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded-lg mb-1 truncate border border-emerald-500/10">
                     {d.ticker}
                     <span className="hidden sm:inline"> {formatCurrency(d.net)}</span>
                   </div>
@@ -134,8 +137,8 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
       {/* Yıllık Özet */}
       <div className="premium-card p-6 shadow-md border border-slate-800/40">
         <div className="flex justify-between items-center mb-5">
-          <h3 className="text-xs font-bold text-slate-355 uppercase tracking-wider">{year} Yıllık Dağılım</h3>
-          <span className="text-sm font-extrabold text-emerald-455 tabular-nums">{formatCurrency(yearTotal)}</span>
+          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">{year} Yıllık Dağılım</h3>
+          <span className="text-sm font-extrabold text-emerald-400 tabular-nums">{formatCurrency(yearTotal)}</span>
         </div>
         <div className="grid grid-cols-12 gap-2 items-end h-20">
           {TR_MONTHS.map((name, i) => {
@@ -145,7 +148,7 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
             return (
               <div key={i} className="flex flex-col items-center gap-2">
                 <div
-                  className={`w-full rounded-t-lg transition-all ${isThisMon ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : val > 0 ? 'bg-emerald-600 hover:bg-emerald-555' : 'bg-slate-800/40'}`}
+                  className={`w-full rounded-t-lg transition-all ${isThisMon ? 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]' : val > 0 ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-800/40'}`}
                   style={{ height: `${pct}%` }}
                   title={val > 0 ? `${name}: ${formatCurrency(val)}` : ''}
                 />
@@ -161,24 +164,24 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
       {/* Bu ayın detayı */}
       {monthDivs.length > 0 && (
         <div className="premium-card p-6 shadow-md border border-slate-800/40">
-          <h3 className="text-xs font-bold text-slate-350 uppercase tracking-wider mb-5">
+          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-5">
             {TR_MONTHS[month]} Ödemeleri ({monthDivs.length} kayıt)
           </h3>
           <div className="space-y-3">
             {monthDivs.sort((a, b) => a.date.localeCompare(b.date)).map(d => (
               <div key={d.id} className="flex justify-between items-center bg-slate-900/30 p-4 rounded-2xl border border-slate-800/30 hover:scale-[1.005] transition-transform duration-300">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center font-bold text-xs text-slate-355 border border-slate-700/20">
+                  <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center font-bold text-xs text-slate-300 border border-slate-700/20">
                     {d.ticker.slice(0, 2)}
                   </div>
                   <div>
                     <div className="font-bold text-slate-100 text-sm">{d.ticker}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{d.date} • <span className="font-semibold text-slate-450">{d.qty} lot</span> • <span className="font-semibold text-slate-450">{d.type}</span></div>
+                    <div className="text-xs text-slate-500 mt-0.5">{d.date} • <span className="font-semibold text-slate-400">{d.qty} lot</span> • <span className="font-semibold text-slate-400">{d.type}</span></div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="font-extrabold text-base text-emerald-400 tabular-nums">{formatCurrency(d.net)}</div>
-                  <div className="text-[10px] text-slate-550 font-semibold mt-0.5">₺{d.ps}/hisse</div>
+                  <div className="text-[10px] text-slate-500 font-semibold mt-0.5">₺{d.ps}/hisse</div>
                 </div>
               </div>
             ))}
@@ -189,7 +192,7 @@ export default function CalendarTab({ dividends, stocks }: CalendarTabProps) {
       {dividends.length === 0 && (
         <div className="p-16 text-center premium-card">
           <div className="text-3xl mb-3">📅</div>
-          <div className="text-slate-550 font-semibold">Temettü kaydı ekleyince takvim burada görünecek.</div>
+          <div className="text-slate-400 font-semibold">Temettü kaydı ekleyince takvim burada görünecek.</div>
         </div>
       )}
     </motion.div>

@@ -44,12 +44,14 @@ export function usePortfolio() {
       const soldQty   = stockSales.reduce((acc, sl) => acc + sl.qty, 0);
       const qty       = Math.max(0, boughtQty - soldQty);
 
-      const totalCost = stockPurchases.reduce((acc, p) => acc + p.qty * p.price, 0);
-      const avgCost   = boughtQty > 0 ? totalCost / boughtQty : 0;
+      const totalCost    = stockPurchases.reduce((acc, p) => acc + p.qty * p.price, 0);
+      const avgCost      = boughtQty > 0 ? totalCost / boughtQty : 0;
+      // Elde tutulan lotların maliyeti (satılan lotlar çıkarılmış)
+      const remainingCost = avgCost * qty;
       const currentPrice = s.lastPrice || avgCost;
       const currentValue = qty * currentPrice;
-      const profitLoss   = currentValue - totalCost;
-      const profitLossPct = totalCost > 0 ? (profitLoss / totalCost) * 100 : 0;
+      const profitLoss   = currentValue - remainingCost;
+      const profitLossPct = remainingCost > 0 ? (profitLoss / remainingCost) * 100 : 0;
 
       const stockDividends = dividends.filter(d => d.stockId === s.id);
       const totalDiv = stockDividends.reduce((acc, d) => acc + d.net, 0);
@@ -68,6 +70,7 @@ export function usePortfolio() {
         soldQty,
         avgCost,
         totalCost,
+        remainingCost,
         currentPrice,
         currentValue,
         profitLoss,
@@ -80,19 +83,22 @@ export function usePortfolio() {
   }, [stocks, purchases, dividends, sales]);
 
   const summary = useMemo(() => {
-    const totalValue   = stockStats.reduce((acc, s) => acc + s.currentValue, 0);
-    const totalCost    = stockStats.reduce((acc, s) => acc + s.totalCost, 0);
-    const totalDiv     = dividends.reduce((acc, d) => acc + d.net, 0);
-    const pnl          = totalValue - totalCost;
-    const pnlPct       = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
-    const realizedPnl  = sales.reduce((acc, s) => acc + s.realizedPnl, 0);
+    const totalValue    = stockStats.reduce((acc, s) => acc + s.currentValue, 0);
+    // Elde tutulan lotların toplam maliyeti (unrealized P&L için)
+    const totalCost     = stockStats.reduce((acc, s) => acc + s.remainingCost, 0);
+    // Tüm tarihsel alım maliyeti (temettü verimi hesabı için)
+    const totalInvested = stockStats.reduce((acc, s) => acc + s.totalCost, 0);
+    const totalDiv      = dividends.reduce((acc, d) => acc + d.net, 0);
+    const pnl           = totalValue - totalCost;
+    const pnlPct        = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+    const realizedPnl   = sales.reduce((acc, s) => acc + s.realizedPnl, 0);
 
     // DRIP istatistikleri
     const totalDrip = purchases
       .filter(p => p.isDrip)
       .reduce((acc, p) => acc + p.qty * p.price, 0);
 
-    return { totalValue, totalCost, totalDiv, pnl, pnlPct, realizedPnl, totalDrip };
+    return { totalValue, totalCost, totalInvested, totalDiv, pnl, pnlPct, realizedPnl, totalDrip };
   }, [stockStats, dividends, sales, purchases]);
 
   // ─── Fiyat Yenileme ────────────────────────────────────────────────────────
