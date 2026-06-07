@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
@@ -20,19 +20,22 @@ export default function AddPurchaseModal({
   onSuccess,
   onError,
 }: AddPurchaseModalProps) {
-  const stock = stocks.find(s => s.id === stockId);
+  const [selectedStockId, setSelectedStockId] = useState<string>(stockId || '');
+  const activeStock = stocks.find(s => s.id === (stockId || selectedStockId));
 
   return (
     <AnimatePresence>
       <Modal
-        title={stock ? `Alım Ekle — ${stock.ticker}` : 'Alım Ekle'}
+        title={activeStock ? `Alım Ekle — ${activeStock.ticker}` : 'Alım Ekle'}
         onClose={onClose}
         onSave={async data => {
           try {
-            if (!stockId) {
-              onError('Hisse seçilmedi!');
+            const finalStockId = stockId || selectedStockId;
+            if (!finalStockId) {
+              onError('Lütfen bir hisse seçin!');
               return;
             }
+            const currentStock = stocks.find(s => s.id === finalStockId);
             const qty   = Number(data.qty);
             const price = Number(data.price);
             if (qty <= 0 || price <= 0) {
@@ -41,7 +44,7 @@ export default function AddPurchaseModal({
             }
             const isDripChecked = data.isDrip === 'on';
             const newPurchase = await dbService.add('purchases', {
-              stockId,
+              stockId: finalStockId,
               qty,
               price,
               date:   data.date,
@@ -52,8 +55,8 @@ export default function AddPurchaseModal({
             if (isDripChecked) {
               const netVal = qty * price;
               const newDiv = await dbService.add('dividends', {
-                stockId,
-                ticker:  stock?.ticker || '',
+                stockId: finalStockId,
+                ticker:  currentStock?.ticker || '',
                 date:    data.date,
                 ps:      price,
                 qty:     qty,
@@ -79,16 +82,35 @@ export default function AddPurchaseModal({
         saveLabel="Alımı Kaydet"
       >
         <div className="space-y-4">
-          {stock && (
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-slate-700 flex items-center justify-center font-bold text-sm text-slate-200">
-                {stock.ticker.slice(0, 2)}
-              </div>
-              <div>
-                <div className="font-bold text-slate-100 text-sm">{stock.ticker}</div>
-                <div className="text-xs text-slate-500">{stock.name} • {stock.exchange}</div>
-              </div>
+          {!stockId ? (
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Hisse Seçin</label>
+              <select
+                value={selectedStockId}
+                onChange={e => setSelectedStockId(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors"
+                required
+              >
+                <option value="" disabled>Seçiniz...</option>
+                {stocks.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.ticker} - {s.name} ({s.exchange})
+                  </option>
+                ))}
+              </select>
             </div>
+          ) : (
+            activeStock && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-slate-700 flex items-center justify-center font-bold text-sm text-slate-200">
+                  {activeStock.ticker.slice(0, 2)}
+                </div>
+                <div>
+                  <div className="font-bold text-slate-100 text-sm">{activeStock.ticker}</div>
+                  <div className="text-xs text-slate-500">{activeStock.name} • {activeStock.exchange}</div>
+                </div>
+              </div>
+            )
           )}
 
           <Input

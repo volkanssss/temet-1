@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { cn, formatCurrency, formatPercentage } from '../../lib/utils';
 import { StockStat, Purchase, Dividend, PortfolioHistory } from '../../types/stock';
+import AnimatedNumber from '../ui/AnimatedNumber';
 
 type OverviewTabProps = {
   summary: any;
@@ -132,7 +133,7 @@ export default function OverviewTab({
           <RefreshCcw size={13} className="opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         <div className="text-[44px] md:text-[52px] font-extrabold text-white mb-3 tracking-tight tabular-nums bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-          {formatCurrency(summary.totalValue)}
+          <AnimatedNumber value={summary.totalValue} formatter={formatCurrency} />
         </div>
         <div className={cn('text-sm font-semibold flex items-center gap-1.5 px-4 py-1.5 rounded-full border',
           cur.pnl >= 0 
@@ -153,12 +154,12 @@ export default function OverviewTab({
       {/* ─── Özet Metrikler ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
         {[
-                  { icon: '💰', label: 'Ödenen Temettü', val: formatCurrency(summary.totalDiv), sub: formatPercentage(summary.totalInvested > 0 ? (summary.totalDiv / summary.totalInvested) * 100 : 0) + ' verimi', color: 'text-emerald-400' },
-          { icon: '📅', label: 'Yıllık Temettü (TTM)', val: formatCurrency(trailingAnnualDiv), sub: formatPercentage(estimatedYield) + ' tahmini', color: 'text-amber-400' },
-          { icon: '📊', label: 'Portföy K/Z', val: formatCurrency(summary.pnl), sub: formatPercentage(summary.pnlPct), color: summary.pnl >= 0 ? 'text-emerald-400' : 'text-red-400' },
-          { icon: '⚡', label: 'Günlük K/Z', val: daily ? formatCurrency(daily.val) : '₺0,00', sub: daily ? formatPercentage(daily.pct) : '—', color: !daily || daily.val >= 0 ? 'text-cyan-400' : 'text-red-400' },
-          { icon: '🔄', label: 'DRIP Geri Alımlar', val: formatCurrency(summary.totalDrip || 0), sub: 'Temettüyle alınan', color: 'text-violet-400' },
-          { icon: '💸', label: 'Satış K/Z (Gerçek)', val: formatCurrency(summary.realizedPnl || 0), sub: (summary.realizedPnl || 0) >= 0 ? 'Gerçekleşen kâr' : 'Gerçekleşen zarar', color: (summary.realizedPnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400' },
+          { icon: '💰', label: 'Ödenen Temettü', val: summary.totalDiv, sub: formatPercentage(summary.totalInvested > 0 ? (summary.totalDiv / summary.totalInvested) * 100 : 0) + ' verimi', color: 'text-emerald-400' },
+          { icon: '📅', label: 'Yıllık Temettü (TTM)', val: trailingAnnualDiv, sub: formatPercentage(estimatedYield) + ' tahmini', color: 'text-amber-400' },
+          { icon: '📊', label: 'Portföy K/Z', val: summary.pnl, sub: formatPercentage(summary.pnlPct), color: summary.pnl >= 0 ? 'text-emerald-400' : 'text-red-400' },
+          { icon: '⚡', label: 'Günlük K/Z', val: daily ? daily.val : 0, sub: daily ? formatPercentage(daily.pct) : '—', color: !daily || daily.val >= 0 ? 'text-cyan-400' : 'text-red-400' },
+          { icon: '🔄', label: 'DRIP Geri Alımlar', val: summary.totalDrip || 0, sub: 'Temettüyle alınan', color: 'text-violet-400' },
+          { icon: '💸', label: 'Satış K/Z (Gerçek)', val: summary.realizedPnl || 0, sub: (summary.realizedPnl || 0) >= 0 ? 'Gerçekleşen kâr' : 'Gerçekleşen zarar', color: (summary.realizedPnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400' },
         ].map(m => (
           <div key={m.label} className="premium-card card-hover-effect p-6 flex flex-col justify-between min-h-[130px]">
             <div className="flex justify-between items-center mb-4">
@@ -166,7 +167,9 @@ export default function OverviewTab({
               <span className={`text-xs md:text-sm font-bold ${m.color} bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/20`}>{m.sub}</span>
             </div>
             <div>
-              <div className="text-lg md:text-xl font-extrabold text-white mb-1 tabular-nums">{m.val}</div>
+              <div className="text-lg md:text-xl font-extrabold text-white mb-1 tabular-nums">
+                <AnimatedNumber value={m.val} formatter={formatCurrency} />
+              </div>
               <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">{m.label}</div>
             </div>
           </div>

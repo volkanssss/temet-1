@@ -29,6 +29,7 @@ export default function PortfolioTab({
 }: PortfolioTabProps) {
   const [sortField, setSortField] = useState<SortField>('currentValue');
   const [sortDir,   setSortDir]   = useState<SortDir>('desc');
+  const [selectedSector, setSelectedSector] = useState<string>('Tümü');
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -39,13 +40,19 @@ export default function PortfolioTab({
     }
   };
 
+  const sectors = useMemo(() => {
+    const sSet = new Set(stockStats.map(s => s.sector).filter(Boolean));
+    return ['Tümü', ...Array.from(sSet)];
+  }, [stockStats]);
+
   const sortedFiltered = useMemo(() => {
     const q = searchQuery.toLowerCase();
     let list = stockStats.filter(s =>
-      !q ||
+      (!q ||
       s.ticker.toLowerCase().includes(q) ||
       s.name.toLowerCase().includes(q) ||
-      s.sector.toLowerCase().includes(q)
+      s.sector.toLowerCase().includes(q)) &&
+      (selectedSector === 'Tümü' || s.sector === selectedSector)
     );
     list = [...list].sort((a, b) => {
       let vA: any = a[sortField] ?? 0;
@@ -57,7 +64,7 @@ export default function PortfolioTab({
       return 0;
     });
     return list;
-  }, [stockStats, searchQuery, sortField, sortDir]);
+  }, [stockStats, searchQuery, sortField, sortDir, selectedSector]);
 
   const SortBtn = ({ field, label }: { field: SortField; label: string }) => (
     <th
@@ -101,6 +108,29 @@ export default function PortfolioTab({
           <Plus size={15} /> Hisse Ekle <span className="opacity-50 text-xs font-normal">(N)</span>
         </button>
       </div>
+
+      {/* Sektör Filtreleri */}
+      {sectors.length > 2 && (
+        <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-1 scroll-smooth">
+          {sectors.map(sec => {
+            const isSel = selectedSector === sec;
+            return (
+              <button
+                key={sec}
+                onClick={() => setSelectedSector(sec)}
+                className={cn(
+                  'px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border shrink-0',
+                  isSel
+                    ? 'bg-cyan-500 text-slate-950 border-cyan-500 shadow-lg shadow-cyan-500/20'
+                    : 'bg-slate-900 text-slate-400 border-slate-800/80 hover:border-slate-700 hover:text-slate-200'
+                )}
+              >
+                {sec}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* ─── Desktop Tablo ─────────────────────────────────────────── */}
       <div className="hidden md:block overflow-x-auto premium-card">

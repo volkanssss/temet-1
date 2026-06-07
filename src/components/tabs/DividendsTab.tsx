@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Download, RefreshCcw, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency } from '../../lib/utils';
 import { Dividend, Purchase, StockHolding } from '../../types/stock';
+import SwipeableItem from '../ui/SwipeableItem';
 
 type DividendsTabProps = {
   dividends: Dividend[];
@@ -305,33 +306,35 @@ export default function DividendsTab({
         {[...filtered]
           .sort((a, b) => b.date.localeCompare(a.date))
           .map(d => (
-            <div key={d.id} className="premium-card p-5 flex justify-between items-center hover:scale-[1.008] transition-transform duration-300 border border-slate-800/40">
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl bg-slate-800/50 flex items-center justify-center font-bold text-slate-300 border border-slate-700/20">
-                  {d.ticker.slice(0, 2)}
+            <SwipeableItem key={d.id} onDelete={() => onDeleteDividend(d.id)} deleteLabel="Sil">
+              <div className="premium-card p-5 flex justify-between items-center hover:scale-[1.008] transition-transform duration-300 border border-slate-800/40 w-full bg-slate-900/40">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-2xl bg-slate-800/50 flex items-center justify-center font-bold text-slate-300 border border-slate-700/20">
+                    {d.ticker.slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <div className="font-bold text-slate-100">{d.ticker}</div>
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700/20">{d.type}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium">
+                      {d.date} • <span className="font-semibold text-slate-400">{d.qty} LOT</span> • <span className="text-slate-400">₺{d.ps}/hisse</span>
+                      {d.tax > 0 && <span className="ml-2 text-slate-600">Stopaj: {formatCurrency(d.tax)}</span>}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2.5 mb-1">
-                    <div className="font-bold text-slate-100">{d.ticker}</div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700/20">{d.type}</span>
-                  </div>
-                  <div className="text-xs text-slate-500 font-medium">
-                    {d.date} • <span className="font-semibold text-slate-400">{d.qty} LOT</span> • <span className="text-slate-400">₺{d.ps}/hisse</span>
-                    {d.tax > 0 && <span className="ml-2 text-slate-600">Stopaj: {formatCurrency(d.tax)}</span>}
-                  </div>
+                <div className="text-right flex flex-col items-end gap-2">
+                  <div className="text-lg font-extrabold text-emerald-400 tabular-nums">{formatCurrency(d.net)}</div>
+                  <button
+                    onClick={() => onDeleteDividend(d.id)}
+                    className="hidden sm:flex w-8 h-8 items-center justify-center rounded-xl bg-slate-800/80 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all border border-slate-700/30 active:scale-95"
+                    title="Temettü Sil"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
-              <div className="text-right flex flex-col items-end gap-2">
-                <div className="text-lg font-extrabold text-emerald-400 tabular-nums">{formatCurrency(d.net)}</div>
-                <button
-                  onClick={() => onDeleteDividend(d.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-800/80 text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all border border-slate-700/30 active:scale-95"
-                  title="Temettü Sil"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
+            </SwipeableItem>
           ))}
         {filtered.length === 0 && (
           <div className="p-16 text-center premium-card">

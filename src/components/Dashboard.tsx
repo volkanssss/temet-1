@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCcw, LogOut, Search, Sun, Moon, CheckCircle, AlertCircle,
-  Plus, X, TrendingUp,
+  Plus, X, TrendingUp, Coins, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, logout } from '../lib/supabase';
 import { dbService } from '../services/db';
-import { cn } from '../lib/utils';
+import { cn, formatCurrency, formatPercentage } from '../lib/utils';
 import { usePortfolio } from '../hooks/usePortfolio';
 import { StockStat } from '../types/stock';
 
@@ -36,16 +36,11 @@ const TABS: { id: Tab; label: string; short: string; icon: string }[] = [
   { id: 'cal',  label: 'Takvim',      short: 'Takvim',  icon: '📅' },
 ];
 
-// FAB config — hangi sekme için FAB gösterilsin
-const FAB_CONFIG: Partial<Record<Tab, { icon: React.ReactNode; label: string; color: string }>> = {
-  pf:   { icon: <Plus size={22} />,       label: 'Hisse Ekle',   color: 'bg-cyan-500 shadow-cyan-500/40' },
-  div:  { icon: <Plus size={22} />,       label: 'Temettü Ekle', color: 'bg-emerald-500 shadow-emerald-500/40' },
-};
-
 export default function Dashboard() {
   const [activeTab,        setActiveTab]        = useState<Tab>('dash');
   const [searchQuery,      setSearchQuery]      = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [fabOpen,          setFabOpen]          = useState(false);
 
   const {
     stocks, purchases, dividends, goals, history, sales,
@@ -112,17 +107,106 @@ export default function Dashboard() {
         setIsAddingDividend(false);
         setIsAddingSale(false); setViewingPurchases(null);
         setViewingStockDetails(null); setShowMobileSearch(false);
+        setFabOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [refreshPrices]);
 
-  // ─── FAB aksiyonu ─────────────────────────────────────────────────────────
-  const handleFab = () => {
-    if (activeTab === 'pf')   setIsAddingStock(true);
-    if (activeTab === 'div')  setIsAddingDividend(true);
+  // ─── Pull to Refresh (PTR) ────────────────────────────────────────────────
+  const [pullDist, setPullDist] = useState(0);
+  const [pulling, setPulling] = useState(false);
+  const [refreshed, setRefreshed] = useState(false);
+  const startY = useRef(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const PULL_THRESHOLD = 90;
+
+  const handlePTRStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startY.current = e.touches[0].clientY;
+      setPulling(true);
+    }
   };
+
+  const handlePTRMove = (e: React.TouchEvent) => {
+    if (!pulling) return;
+    const diff = e.touches[0].clientY - startY.current;
+    if (diff > 0) {
+      const dist = Math.min(diff * 0.4, 120);
+      setPullDist(dist);
+      if (diff > 10 && e.cancelable) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handlePTREnd = async () => {
+    if (!pulling) return;
+    setPulling(false);
+    if (pullDist >= PULL_THRESHOLD) {
+      try {
+        await refreshPrices();
+        setRefreshed(true);
+        setTimeout(() => setRefreshed(false), 1500);
+      } catch (err) {
+        console.error('Fiyatlar güncellenemedi:', err);
+      }
+    }
+    setPullDist(0);
+  };
+
+  // ─── Canlı BIST Çalışma Durumu ──────────────────────────────────────────
+  const isMarketOpen = () => {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const trTime = new Date(utc + 3 * 3600000); // UTC+3
+    const day = trTime.getDay();
+    const hour = trTime.getHours();
+    const min = trTime.getMinutes();
+    const timeVal = hour * 100 + min;
+    return day >= 1 && day <= 5 && timeVal >= 1000 && timeVal <= 1810;
+  };
+  const marketActive = isMarketOpen();
+
+  // ─── Yıllık Temettü (TTM) Hesaplama ───────────────────────────────────────
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+  const trailingAnnualDiv = dividends
+    .filter(d => new Date(d.date) >= twelveMonthsAgo)
+    .reduce((a, d) => a + d.net, 0);
+
+  // ─── Mini Stats ───────────────────────────────────────────────────────────
+  const miniStats = [
+    {
+      label: 'Portföy Değeri',
+      val: formatCurrency(summary.totalValue),
+      icon: '💼',
+      color: 'text-cyan-400',
+      tab: 'dash' as Tab,
+    },
+    {
+      label: 'Portföy K/Z',
+      val: formatCurrency(summary.pnl),
+      icon: '📊',
+      color: summary.pnl >= 0 ? 'text-emerald-400' : 'text-red-400',
+      tab: 'dash' as Tab,
+    },
+    {
+      label: 'Yıllık Temettü',
+      val: formatCurrency(trailingAnnualDiv),
+      icon: '💰',
+      color: 'text-amber-400',
+      tab: 'div' as Tab,
+    },
+    {
+      label: 'Hisse Sayısı',
+      val: `${stocks.length} Adet`,
+      icon: '📈',
+      color: 'text-violet-400',
+      tab: 'pf' as Tab,
+    },
+  ];
 
   // ─── Selected stat helper ─────────────────────────────────────────────────
   const selectedStat = viewingStockDetails
@@ -137,10 +221,21 @@ export default function Dashboard() {
     ? (stocks.find(s => s.id === viewingPurchases)?.ticker ?? '')
     : '';
 
-  const fabConfig = FAB_CONFIG[activeTab];
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans select-none">
+
+      {/* Backdrop for Expanded FAB */}
+      <AnimatePresence>
+        {fabOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setFabOpen(false)}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-[2px] z-[120] md:hidden"
+          />
+        )}
+      </AnimatePresence>
 
       {/* ─── Toast ─────────────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -215,8 +310,13 @@ export default function Dashboard() {
                 <img src="/icon.png" alt="Logo" className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0">
-                <div className="text-slate-500 text-[9px] uppercase font-bold tracking-widest leading-none mb-0.5 truncate hidden sm:block">
-                  Temettü Takip • {userName}
+                <div className="flex items-center gap-2 text-slate-500 text-[9px] uppercase font-bold tracking-widest leading-none mb-0.5 truncate">
+                  <span className="hidden sm:inline">Temettü Takip • {userName}</span>
+                  <span className="sm:hidden">PORTFÖYÜM</span>
+                  <div className="flex items-center gap-1 bg-slate-900 px-1.5 py-0.5 rounded-full border border-slate-800">
+                    <div className={cn("w-1 h-1 rounded-full", marketActive ? "bg-emerald-500 animate-pulse" : "bg-slate-500")} />
+                    <span className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">{marketActive ? "BİST AÇIK" : "BİST KAPALI"}</span>
+                  </div>
                 </div>
                 <h1 className="text-base md:text-lg font-bold text-white leading-none truncate">
                   {TABS.find(t => t.id === activeTab)?.label}
@@ -311,7 +411,31 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* ── Mobil: Yükleme Göstergesi ── */}
+          {/* ── Mobil: Mini Stats Şeridi (Header Altı) ── */}
+          {stocks.length > 0 && (
+            <div className="md:hidden relative border-t border-slate-900">
+              <div className="flex overflow-x-auto hide-scrollbar gap-2 px-4 py-3">
+                {miniStats.map((stat, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveTab(stat.tab)}
+                    className={cn(
+                      'flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-900/80 border shrink-0 transition-all active:scale-[0.97]',
+                      activeTab === stat.tab ? 'border-cyan-500/40 bg-slate-900' : 'border-slate-800/60'
+                    )}
+                  >
+                    <span className="text-sm">{stat.icon}</span>
+                    <div className="text-left">
+                      <div className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">{stat.label}</div>
+                      <div className={cn('text-xs font-bold font-sans tabular-nums', stat.color)}>{stat.val}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Mobil: Yükleme Göstergesi (Fiyatlar Güncellenirken) ── */}
           {loading && stocks.length > 0 && (
             <div className="md:hidden flex items-center gap-2 px-4 pb-2 text-[10px] text-slate-500">
               <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
@@ -321,8 +445,46 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* Pull-to-refresh Visual Indicator */}
+      <AnimatePresence>
+        {(pullDist > 8 || refreshed) && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-[150] md:hidden"
+          >
+            <div className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold shadow-xl border backdrop-blur-xl',
+              refreshed 
+                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' 
+                : pullDist >= PULL_THRESHOLD 
+                  ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400' 
+                  : 'bg-slate-800/90 border-slate-700 text-slate-400'
+            )}>
+              <RefreshCcw 
+                size={13} 
+                className={cn(loading || pullDist >= PULL_THRESHOLD ? 'animate-spin' : '')} 
+                style={{ transform: `rotate(${(pullDist / PULL_THRESHOLD) * 180}deg)` }} 
+              />
+              {refreshed ? 'Güncellendi!' : pullDist >= PULL_THRESHOLD ? 'Bırak ve Güncelle' : 'Aşağı çekerek güncelle'}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── Content ────────────────────────────────────────────────────────── */}
-      <div className="px-4 md:px-6 pt-5 pb-28 md:pb-8 max-w-5xl mx-auto">
+      <div 
+        ref={contentRef} 
+        className="px-4 md:px-6 pb-28 md:pb-8 max-w-5xl mx-auto"
+        style={{ 
+          paddingTop: pullDist > 0 ? `${20 + pullDist * 0.5}px` : '20px', 
+          transition: pulling ? 'none' : 'padding-top 0.3s cubic-bezier(0.16, 1, 0.3, 1)' 
+        }}
+        onTouchStart={handlePTRStart}
+        onTouchMove={handlePTRMove}
+        onTouchEnd={handlePTREnd}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -423,31 +585,77 @@ export default function Dashboard() {
         </AnimatePresence>
       </div>
 
-      {/* ─── Mobil: FAB (Floating Action Button) ───────────────────────────── */}
-      <AnimatePresence>
-        {fabConfig && (
-          <motion.button
-            key={activeTab}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            onClick={handleFab}
-            className={cn(
-              'fixed right-4 z-[90] md:hidden w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-xl active:scale-95 transition-transform',
-              fabConfig.color,
-              'bottom-[calc(72px+env(safe-area-inset-bottom,0px)+12px)]'
-            )}
-            aria-label={fabConfig.label}
-          >
-            {fabConfig.icon}
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {/* ─── Mobil: Speed Dial FAB (Floating Action Button) ───────────────── */}
+      <div className="fixed right-4 z-[130] flex flex-col items-end gap-3 md:hidden bottom-[calc(72px+env(safe-area-inset-bottom,0px)+12px)]">
+        <AnimatePresence>
+          {fabOpen && (
+            <div className="flex flex-col items-end gap-3">
+              {/* Option 1: Temettü Ekle */}
+              <motion.button
+                initial={{ opacity: 0, y: 15, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.8 }}
+                transition={{ duration: 0.15, delay: 0.05 }}
+                onClick={() => { setFabOpen(false); setIsAddingDividend(true); }}
+                className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2.5 rounded-xl shadow-xl text-emerald-400 hover:text-white"
+              >
+                <span className="text-xs font-bold text-slate-300">Temettü Ekle</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Coins size={16} />
+                </div>
+              </motion.button>
+
+              {/* Option 2: Alım Ekle */}
+              <motion.button
+                initial={{ opacity: 0, y: 15, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.8 }}
+                transition={{ duration: 0.15, delay: 0.1 }}
+                onClick={() => { setFabOpen(false); setSelectedStockId(null); setIsAddingPurchase(true); }}
+                className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2.5 rounded-xl shadow-xl text-blue-400 hover:text-white"
+              >
+                <span className="text-xs font-bold text-slate-300">Alım Ekle</span>
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <TrendingUp size={16} />
+                </div>
+              </motion.button>
+
+              {/* Option 3: Hisse Ekle */}
+              <motion.button
+                initial={{ opacity: 0, y: 15, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 15, scale: 0.8 }}
+                transition={{ duration: 0.15, delay: 0.15 }}
+                onClick={() => { setFabOpen(false); setIsAddingStock(true); }}
+                className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-4 py-2.5 rounded-xl shadow-xl text-cyan-400 hover:text-white"
+              >
+                <span className="text-xs font-bold text-slate-300">Hisse Ekle</span>
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                  <Briefcase size={16} />
+                </div>
+              </motion.button>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Main Trigger FAB */}
+        <motion.button
+          onClick={() => setFabOpen(!fabOpen)}
+          animate={{ rotate: fabOpen ? 135 : 0 }}
+          transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+          className={cn(
+            'w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-2xl active:scale-95 transition-transform border border-slate-800/40',
+            fabOpen ? 'bg-slate-900 text-slate-400' : 'bg-cyan-500 shadow-cyan-500/35'
+          )}
+          aria-label="Menüyü Aç"
+        >
+          <Plus size={24} />
+        </motion.button>
+      </div>
 
       {/* ─── Mobil: Bottom Navigation Bar ─────────────────────────────────── */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-slate-950/98 backdrop-blur-2xl border-t border-slate-800/60"
+        className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-slate-955/98 backdrop-blur-2xl border-t border-slate-900"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <div className="flex h-16">
@@ -458,7 +666,6 @@ export default function Dashboard() {
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  // Haptic feedback (destekleniyorsa)
                   if ('vibrate' in navigator) navigator.vibrate(10);
                 }}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-all active:scale-90"
