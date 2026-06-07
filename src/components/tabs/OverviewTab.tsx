@@ -64,6 +64,11 @@ export default function OverviewTab({
     setIsEditingGoals(false);
   };
 
+  const now              = new Date();
+  const twelveMonthsAgo  = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  const trailingDivs     = dividends.filter(d => new Date(d.date) >= twelveMonthsAgo);
+  const trailingAnnualDiv = trailingDivs.reduce((a, d) => a + d.net, 0);
+
   const portfolioProgress = targetPortfolioVal > 0 ? (summary.totalValue / targetPortfolioVal) * 100 : 0;
   const dividendProgress = targetAnnualDiv > 0 ? (trailingAnnualDiv / targetAnnualDiv) * 100 : 0;
 
@@ -118,10 +123,6 @@ export default function OverviewTab({
     });
   }
 
-  const now              = new Date();
-  const twelveMonthsAgo  = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-  const trailingDivs     = dividends.filter(d => new Date(d.date) >= twelveMonthsAgo);
-  const trailingAnnualDiv = trailingDivs.reduce((a, d) => a + d.net, 0);
   const estimatedYield   = summary.totalCost > 0 ? (trailingAnnualDiv / summary.totalCost) * 100 : 0;
 
   const groupedPurchases = purchases.reduce((acc, p) => {
