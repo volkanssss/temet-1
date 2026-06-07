@@ -13,6 +13,7 @@ export function usePortfolio() {
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [initialFetchDone, setInitialFetchDone] = useState(false);
+  const [prevCloses, setPrevCloses] = useState<Record<string, number>>({});
 
   // Realtime Subscriptions
   useEffect(() => {
@@ -63,6 +64,10 @@ export function usePortfolio() {
       const dripPurchases = stockPurchases.filter(p => p.isDrip);
       const totalDrip = dripPurchases.reduce((acc, p) => acc + p.qty * p.price, 0);
 
+      const prevClose = prevCloses[s.ticker] || s.lastPrice || avgCost;
+      const dailyChange = currentPrice - prevClose;
+      const dailyChangePct = prevClose > 0 ? (dailyChange / prevClose) * 100 : 0;
+
       return {
         ...s,
         qty,
@@ -78,9 +83,11 @@ export function usePortfolio() {
         totalDiv,
         realizedPnl,
         totalDrip,
+        dailyChange,
+        dailyChangePct,
       };
     });
-  }, [stocks, purchases, dividends, sales]);
+  }, [stocks, purchases, dividends, sales, prevCloses]);
 
   const summary = useMemo(() => {
     const totalValue    = stockStats.reduce((acc, s) => acc + s.currentValue, 0);
@@ -110,16 +117,27 @@ export function usePortfolio() {
         stocks.map(s => ({ ticker: s.ticker, exchange: s.exchange }))
       );
 
+      const closes: Record<string, number> = {};
       await Promise.all(
         stocks.map(s => {
-          const price = priceMap[s.ticker];
+          const data = priceMap[s.ticker];
+          const price = data && typeof data === 'object' ? data.price : data;
+          const prevClose = data && typeof data === 'object' ? data.prevClose : null;
+          if (prevClose != null) {
+            closes[s.ticker] = prevClose;
+          }
           if (price != null) return dbService.update('stocks', s.id, { lastPrice: price });
         })
       );
 
+      if (Object.keys(closes).length > 0) {
+        setPrevCloses(prev => ({ ...prev, ...closes }));
+      }
+
       // Tarihsel veri kaydet
       const newTotalValue = stocks.reduce((acc, s) => {
-        const price = priceMap[s.ticker] ?? s.lastPrice ?? 0;
+        const data = priceMap[s.ticker];
+        const price = (data && typeof data === 'object' ? data.price : data) ?? s.lastPrice ?? 0;
         const stockSales = sales.filter(sl => sl.stockId === s.id);
         const soldQty = stockSales.reduce((sum, sl) => sum + sl.qty, 0);
         const qty = purchases.filter(p => p.stockId === s.id).reduce((sum, p) => sum + p.qty, 0) - soldQty;

@@ -92,7 +92,7 @@ function toYahooSymbol(ticker: string, exchange: string): string {
 }
 
 // ─── Yahoo Finance v8 (doğrudan + proxy fallback) ──────────────────────────
-async function fetchYahooPrice(ticker: string, exchange: string): Promise<number | null> {
+async function fetchYahooPrice(ticker: string, exchange: string): Promise<{ price: number | null, prevClose: number | null } | null> {
   const symbol = toYahooSymbol(ticker, exchange);
 
   // 1. Vite dev proxy veya Vercel serverless üzerinden dene (CORS yok)
@@ -105,8 +105,15 @@ async function fetchYahooPrice(ticker: string, exchange: string): Promise<number
     });
     if (res.ok) {
       const data = await res.json();
-      const price = data[ticker];
-      if (price != null && price > 0) return Math.round(price * 100) / 100;
+      const val = data[ticker];
+      if (val && typeof val === 'object') {
+        return {
+          price: val.price ? Math.round(val.price * 100) / 100 : null,
+          prevClose: val.prevClose ? Math.round(val.prevClose * 100) / 100 : null
+        };
+      } else if (val != null && val > 0) {
+        return { price: Math.round(val * 100) / 100, prevClose: null };
+      }
     }
   } catch { /* fallback */ }
 
@@ -128,8 +135,13 @@ async function fetchYahooPrice(ticker: string, exchange: string): Promise<number
         });
         if (!res.ok) continue;
         const data = await res.json();
-        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (price != null && price > 0) return Math.round(price * 100) / 100;
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (meta?.regularMarketPrice != null && meta.regularMarketPrice > 0) {
+          return {
+            price: Math.round(meta.regularMarketPrice * 100) / 100,
+            prevClose: meta.chartPreviousClose ? Math.round(meta.chartPreviousClose * 100) / 100 : null
+          };
+        }
       } catch { continue; }
     }
   }
@@ -139,13 +151,14 @@ async function fetchYahooPrice(ticker: string, exchange: string): Promise<number
 
 // ─── Tek hisse fiyatı ───────────────────────────────────────────────────────
 export async function fetchStockPrice(ticker: string, exchange = 'BIST'): Promise<number | null> {
-  return fetchYahooPrice(ticker, exchange);
+  const res = await fetchYahooPrice(ticker, exchange);
+  return res && typeof res === 'object' ? res.price : res;
 }
 
 // ─── Toplu fiyat çekme (tam paralel, gecikme yok) ──────────────────────────
 export async function fetchStockPricesBatch(
   stocks: { ticker: string; exchange: string }[]
-): Promise<Record<string, number | null>> {
+): Promise<Record<string, { price: number | null; prevClose: number | null } | null>> {
   if (stocks.length === 0) return {};
 
   // Önce sunucu-taraflı batch endpoint'i dene (tek istek, en hızlı)
@@ -158,28 +171,86 @@ export async function fetchStockPricesBatch(
     });
     if (res.ok) {
       const data = await res.json();
+      const results: Record<string, { price: number | null; prevClose: number | null } | null> = {};
+
+      for (const s of stocks) {
+        const val = data[s.ticker];
+        if (val && typeof val === 'object') {
+          results[s.ticker] = {
+            price: val.price,
+            prevClose: val.prevClose
+          };
+        } else if (val != null) {
+          results[s.ticker] = { price: val, prevClose: null };
+        } else {
+          results[s.ticker] = null;
+        }
+      }
+
       // Tüm ticker'lar geldi mi kontrol et
-      const allFetched = stocks.every(s => data[s.ticker] != null);
-      if (allFetched) return data;
+      const allFetched = stocks.every(s => results[s.ticker] !== null);
+      if (allFetched) return results;
+
       // Kısmi sonuç — eksikleri tek tek tamamla
-      const missing = stocks.filter(s => data[s.ticker] == null);
+      const missing = stocks.filter(s => results[s.ticker] === null);
       const extras = await Promise.all(
-        missing.map(async s => ({ ticker: s.ticker, price: await fetchYahooPrice(s.ticker, s.exchange) }))
+        missing.map(async s => ({ ticker: s.ticker, data: await fetchYahooPrice(s.ticker, s.exchange) }))
       );
-      extras.forEach(e => { data[e.ticker] = e.price; });
-      return data;
+      extras.forEach(e => { results[e.ticker] = e.data; });
+      return results;
     }
   } catch { /* fallback */ }
 
   // Sunucu yok — hepsini paralel olarak proxy üzerinden çek
-  const results = await Promise.all(
-    stocks.map(async s => ({
-      ticker: s.ticker,
-      price: await fetchYahooPrice(s.ticker, s.exchange),
-    }))
+  const results: Record<string, { price: number | null; prevClose: number | null } | null> = {};
+  await Promise.all(
+    stocks.map(async s => {
+      results[s.ticker] = await fetchYahooPrice(s.ticker, s.exchange);
+    })
   );
 
-  return Object.fromEntries(results.map(r => [r.ticker, r.price]));
+  return results;
+}
+
+// ─── 52 Haftalık Fiyat Aralığı ve Detaylar ────────────────────────────────
+export async function fetchStockDetailsExtended(ticker: string, exchange = 'BIST'): Promise<{
+  price: number | null;
+  low: number | null;
+  high: number | null;
+  prevClose: number | null;
+} | null> {
+  const symbol = toYahooSymbol(ticker, exchange);
+  const endpoints = [
+    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+    `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+  ];
+  const proxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?url=',
+  ];
+
+  for (const proxy of proxies) {
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(proxy + encodeURIComponent(endpoint), {
+          signal: AbortSignal.timeout(7000),
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (meta) {
+          return {
+            price: meta.regularMarketPrice ? Math.round(meta.regularMarketPrice * 100) / 100 : null,
+            low: meta.fiftyTwoWeekLow ? Math.round(meta.fiftyTwoWeekLow * 100) / 100 : null,
+            high: meta.fiftyTwoWeekHigh ? Math.round(meta.fiftyTwoWeekHigh * 100) / 100 : null,
+            prevClose: meta.chartPreviousClose ? Math.round(meta.chartPreviousClose * 100) / 100 : null
+          };
+        }
+      } catch { continue; }
+    }
+  }
+
+  return null;
 }
 
 // ─── Hisse bilgisi (ad + sektör) ───────────────────────────────────────────

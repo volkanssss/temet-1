@@ -72,9 +72,12 @@ export default async function handler(req, res) {
             if (!response.ok) continue;
 
             const data = await response.json();
-            const p = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-            if (p != null && p > 0) {
-              price = Math.round(p * 100) / 100;
+            const meta = data?.chart?.result?.[0]?.meta;
+            if (meta?.regularMarketPrice != null && meta.regularMarketPrice > 0) {
+              price = {
+                price: Math.round(meta.regularMarketPrice * 100) / 100,
+                prevClose: meta.chartPreviousClose ? Math.round(meta.chartPreviousClose * 100) / 100 : null
+              };
               break;
             }
           } catch {

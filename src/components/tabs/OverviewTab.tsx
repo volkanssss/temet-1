@@ -44,6 +44,29 @@ export default function OverviewTab({
 }: OverviewTabProps) {
   const [summaryRange, setSummaryRange] = useState<'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('all');
 
+  // ─── Hedef & Kilometre Taşları (Milestones) ───
+  const [targetPortfolioVal, setTargetPortfolioVal] = useState(() => {
+    return Number(localStorage.getItem('target_portfolio_val')) || 500000;
+  });
+  const [targetAnnualDiv, setTargetAnnualDiv] = useState(() => {
+    return Number(localStorage.getItem('target_annual_div')) || 25000;
+  });
+
+  const [isEditingGoals, setIsEditingGoals] = useState(false);
+  const [editPortfolioVal, setEditPortfolioVal] = useState(targetPortfolioVal);
+  const [editAnnualDiv, setEditAnnualDiv] = useState(targetAnnualDiv);
+
+  const handleSaveGoals = () => {
+    localStorage.setItem('target_portfolio_val', editPortfolioVal.toString());
+    localStorage.setItem('target_annual_div', editAnnualDiv.toString());
+    setTargetPortfolioVal(editPortfolioVal);
+    setTargetAnnualDiv(editAnnualDiv);
+    setIsEditingGoals(false);
+  };
+
+  const portfolioProgress = targetPortfolioVal > 0 ? (summary.totalValue / targetPortfolioVal) * 100 : 0;
+  const dividendProgress = targetAnnualDiv > 0 ? (trailingAnnualDiv / targetAnnualDiv) * 100 : 0;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -175,6 +198,126 @@ export default function OverviewTab({
           </div>
         ))}
       </div>
+
+      {/* ─── Hedefler & Kilometre Taşları (Milestones) ─── */}
+      <div className="premium-card p-6 shadow-md border border-slate-800/40">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Hedeflerim & Kilometre Taşları</h3>
+            <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-cyan-500/15">Hedef</span>
+          </div>
+          {!isEditingGoals ? (
+            <button
+              onClick={() => setIsEditingGoals(true)}
+              className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-wider cursor-pointer"
+            >
+              Hedefleri Düzenle
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveGoals}
+                className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-wider cursor-pointer"
+              >
+                Kaydet
+              </button>
+              <span className="text-slate-700 text-xs select-none">|</span>
+              <button
+                onClick={() => {
+                  setEditPortfolioVal(targetPortfolioVal);
+                  setEditAnnualDiv(targetAnnualDiv);
+                  setIsEditingGoals(false);
+                }}
+                className="text-[10px] font-bold text-slate-550 hover:text-slate-400 transition-colors uppercase tracking-wider cursor-pointer"
+              >
+                Vazgeç
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isEditingGoals ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 uppercase font-black tracking-wider block">Hedef Portföy Değeri (₺)</label>
+              <input
+                type="number"
+                value={editPortfolioVal}
+                onChange={e => setEditPortfolioVal(Number(e.target.value))}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 uppercase font-black tracking-wider block">Hedef Yıllık Temettü Geliri (₺)</label>
+              <input
+                type="number"
+                value={editAnnualDiv}
+                onChange={e => setEditAnnualDiv(Number(e.target.value))}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-200 outline-none focus:border-cyan-500 transition-colors"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Portföy Değeri Hedefi */}
+            <div className="flex items-center gap-5 bg-slate-950/30 border border-slate-900/60 p-5 rounded-2xl">
+              <div className="relative w-20 h-20 shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1e293b" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="15.9" fill="none"
+                    stroke="#06b6d4"
+                    strokeWidth="3"
+                    strokeDasharray={`${Math.min(100, portfolioProgress)} 100`}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-white tabular-nums">
+                  %{Math.round(portfolioProgress)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-wider mb-0.5">Portföy Büyüklüğü Hedefi</div>
+                <div className="text-base font-black text-white leading-tight mb-1 tabular-nums">
+                  {formatCurrency(summary.totalValue)} / <span className="text-slate-400">{formatCurrency(targetPortfolioVal)}</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-semibold leading-none">
+                  Hedefin %{portfolioProgress.toFixed(1)} kısmına ulaşıldı.
+                </div>
+              </div>
+            </div>
+
+            {/* Yıllık Temettü Hedefi */}
+            <div className="flex items-center gap-5 bg-slate-950/30 border border-slate-900/60 p-5 rounded-2xl">
+              <div className="relative w-20 h-20 shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1e293b" strokeWidth="3" />
+                  <circle cx="18" cy="18" r="15.9" fill="none"
+                    stroke="#10b981"
+                    strokeWidth="3"
+                    strokeDasharray={`${Math.min(100, dividendProgress)} 100`}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-black text-white tabular-nums">
+                  %{Math.round(dividendProgress)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-wider mb-0.5">Yıllık Temettü Geliri Hedefi</div>
+                <div className="text-base font-black text-white leading-tight mb-1 tabular-nums">
+                  {formatCurrency(trailingAnnualDiv)} / <span className="text-slate-400">{formatCurrency(targetAnnualDiv)}</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-semibold leading-none">
+                  Hedefin %{dividendProgress.toFixed(1)} kısmına ulaşıldı.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
 
       {/* ─── Portföy Grafiği ─── */}
       {chartData.length > 1 ? (

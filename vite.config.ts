@@ -54,7 +54,7 @@ export default defineConfig(({mode}) => {
               req.on('end', async () => {
                 try {
                   const { stocks } = JSON.parse(body);
-                  const results: Record<string, number | null> = {};
+                  const results: Record<string, { price: number | null, prevClose: number | null } | null> = {};
                   await Promise.all(stocks.map(async (stock: any) => {
                     try {
                       const symbol = stock.exchange === 'BIST' ? `${stock.ticker}.IS` : stock.ticker;
@@ -62,7 +62,15 @@ export default defineConfig(({mode}) => {
                         headers: { 'User-Agent': 'Mozilla/5.0' }
                       });
                       const data = await response.json();
-                      results[stock.ticker] = data?.chart?.result?.[0]?.meta?.regularMarketPrice || null;
+                      const meta = data?.chart?.result?.[0]?.meta;
+                      if (meta) {
+                        results[stock.ticker] = {
+                          price: meta.regularMarketPrice || null,
+                          prevClose: meta.chartPreviousClose || null
+                        };
+                      } else {
+                        results[stock.ticker] = null;
+                      }
                     } catch {
                       results[stock.ticker] = null;
                     }
