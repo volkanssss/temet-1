@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Eye, RefreshCcw, Download, Calendar, TrendingUp, Clock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Eye, EyeOff, RefreshCcw, Download, Calendar, TrendingUp, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -85,6 +85,19 @@ export default function OverviewTab({
   summary, stockStats, purchases, dividends, history, lastUpdated, searchQuery = '', setViewingStockDetails,
 }: OverviewTabProps) {
   const [summaryRange, setSummaryRange] = useState<'all' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('all');
+
+  const [isPrivate, setIsPrivate] = useState(() => {
+    return localStorage.getItem('portfolio_privacy') === 'true';
+  });
+  const [displayType, setDisplayType] = useState<'value' | 'cost' | 'pnl'>('value');
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const togglePrivacy = () => {
+    setIsPrivate(prev => {
+      localStorage.setItem('portfolio_privacy', (!prev).toString());
+      return !prev;
+    });
+  };
 
   // ─── Hedef & Kilometre Taşları (Milestones) ───
   const [targetPortfolioVal, setTargetPortfolioVal] = useState(() => {
@@ -208,48 +221,192 @@ export default function OverviewTab({
 
       {/* ─── Ana Değer Göstergesi ─── */}
       <div
-        className="flex flex-col items-center py-8 px-6 text-center cursor-pointer select-none group active:scale-[0.99] transition-transform premium-card max-w-lg mx-auto"
-        onClick={cycleRange}
-      >
-        <div className="text-slate-400 text-sm mb-3 font-medium group-hover:text-cyan-400 transition-colors flex items-center gap-2">
-          {cur.label}
-          <RefreshCcw size={13} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-        <div className="text-[44px] md:text-[52px] font-extrabold text-white mb-3 tracking-tight tabular-nums bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-          <AnimatedNumber value={summary.totalValue} formatter={formatCurrency} />
-        </div>
-        <div className={cn('text-sm font-semibold flex items-center gap-1.5 px-4 py-1.5 rounded-full border',
+        className={cn(
+          "flex flex-col items-center py-8 px-6 text-center select-none premium-card max-w-lg mx-auto relative overflow-hidden transition-all duration-500",
           cur.pnl >= 0 
-            ? 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' 
-            : 'text-red-400 bg-red-500/5 border-red-500/10'
-        )}>
-          {cur.pnl >= 0 ? '▲' : '▼'}
-          {cur.pnl >= 0 ? '+' : ''}{formatCurrency(cur.pnl)} ({formatPercentage(Math.abs(cur.pct))})
+            ? "shadow-[0_20px_50px_rgba(16,185,129,0.08)] border-emerald-500/20 hover:border-emerald-500/35" 
+            : "shadow-[0_20px_50px_rgba(239,68,68,0.06)] border-red-500/20 hover:border-red-500/35"
+        )}
+      >
+        {/* Üst Bar: Dönem Değişimi & Gizlilik */}
+        <div className="flex justify-between items-center w-full mb-5 pb-2 border-b border-slate-900/60 z-10">
+          <button
+            onClick={cycleRange}
+            className="text-slate-400 text-xs font-bold hover:text-cyan-400 transition-colors flex items-center gap-1.5 bg-slate-950/40 border border-slate-900/50 px-2.5 py-1 rounded-xl cursor-pointer"
+            title="Dönem Değiştir"
+          >
+            {cur.label}
+            <RefreshCcw size={11} className="text-slate-500" />
+          </button>
+          
+          <button
+            onClick={togglePrivacy}
+            className="p-1.5 rounded-xl bg-slate-950/40 border border-slate-900/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-900 transition-all cursor-pointer"
+            title={isPrivate ? "Değerleri Göster" : "Değerleri Gizle"}
+          >
+            {isPrivate ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
         </div>
+
+        {/* Sekme Seçici (Maliyet / Değer / Net K/Z) */}
+        <div className="flex bg-slate-950/80 border border-slate-900 p-0.5 rounded-xl text-[10px] font-bold mb-5 z-10 w-full max-w-[280px]">
+          {[
+            { id: 'value', label: 'Değer', activeColor: 'bg-cyan-500 text-slate-950 shadow shadow-cyan-500/10' },
+            { id: 'cost', label: 'Maliyet', activeColor: 'bg-slate-700 text-white shadow shadow-slate-700/10' },
+            { id: 'pnl', label: 'Toplam K/Z', activeColor: summary.pnl >= 0 ? 'bg-emerald-500 text-slate-950 shadow shadow-emerald-500/10' : 'bg-red-500 text-white shadow shadow-red-500/10' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setDisplayType(tab.id as any)}
+              className={cn(
+                'flex-1 py-1 rounded-lg transition-all active:scale-[0.97] cursor-pointer',
+                displayType === tab.id ? tab.activeColor : 'text-slate-500 hover:text-slate-300'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Ana Rakam Göstergesi */}
+        <div className="text-[44px] md:text-[52px] font-extrabold text-white mb-2 tracking-tight tabular-nums bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent z-10 leading-none">
+          {isPrivate ? (
+            <span>••••••</span>
+          ) : (
+            <AnimatedNumber 
+              value={
+                displayType === 'value' 
+                  ? summary.totalValue 
+                  : displayType === 'cost' 
+                    ? summary.totalCost 
+                    : summary.pnl
+              } 
+              formatter={formatCurrency} 
+            />
+          )}
+        </div>
+
+        {/* Yüzde / Değişim Rozeti */}
+        <div className="mb-4 z-10">
+          {isPrivate ? (
+            <div className="text-xs font-semibold px-4 py-1 rounded-full border bg-slate-950/20 border-slate-900 text-slate-500">
+              ••••••
+            </div>
+          ) : (
+            <div className={cn('text-xs font-bold flex items-center gap-1 px-3 py-1 rounded-full border',
+              cur.pnl >= 0 
+                ? 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' 
+                : 'text-red-400 bg-red-500/5 border-red-500/10'
+            )}>
+              {cur.pnl >= 0 ? '▲' : '▼'}
+              {cur.pnl >= 0 ? '+' : ''}{formatCurrency(cur.pnl)} ({formatPercentage(Math.abs(cur.pct))})
+            </div>
+          )}
+        </div>
+
         {lastUpdated && (
-          <div className="flex items-center gap-1.5 mt-4 text-[10px] text-slate-500 font-medium">
-            <Clock size={11} />
+          <div className="flex items-center gap-1 mt-1 text-[9px] text-slate-500 font-semibold z-10">
+            <Clock size={10} />
             Son güncelleme: {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
           </div>
         )}
 
-        {/* Günlük en çok yükselen / düşen hisseler */}
+        {/* Detaylı Temettü / Getiri Genişleme Paneli */}
+        <div className="w-full mt-4 border-t border-slate-900/60 pt-3 z-10">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center justify-center gap-1 w-full text-[10px] font-black text-slate-400 hover:text-cyan-400 transition-colors uppercase tracking-wider cursor-pointer"
+          >
+            <span>{isExpanded ? "Detayları Gizle" : "Detaylı Portföy Analizi"}</span>
+            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-2 gap-3.5 mt-4 text-left text-xs bg-slate-950/30 border border-slate-900/60 p-4 rounded-2xl">
+                  <div>
+                    <span className="text-[9px] text-slate-550 font-black uppercase tracking-wider block mb-0.5">Yatırılan Net Para</span>
+                    <span className="font-extrabold text-slate-200 tabular-nums">
+                      {isPrivate ? "••••••" : formatCurrency(summary.totalCost)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-550 font-black uppercase tracking-wider block mb-0.5">Alınan Toplam Temettü</span>
+                    <span className="font-extrabold text-emerald-400 tabular-nums">
+                      {isPrivate ? "••••••" : formatCurrency(summary.totalDiv)}
+                    </span>
+                  </div>
+                  <div className="col-span-2 border-t border-slate-900/60 my-1"></div>
+                  <div>
+                    <span className="text-[9px] text-slate-550 font-black uppercase tracking-wider block mb-0.5">Temettü Dahil Net Getiri</span>
+                    {(() => {
+                      const netPnlWithDiv = (summary.totalValue - summary.totalCost) + summary.totalDiv;
+                      const isProfitWithDiv = netPnlWithDiv >= 0;
+                      return (
+                        <span className={cn("font-extrabold tabular-nums", isProfitWithDiv ? "text-emerald-400" : "text-red-400")}>
+                          {isPrivate ? "••••••" : `${isProfitWithDiv ? '+' : ''}${formatCurrency(netPnlWithDiv)}`}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-550 font-black uppercase tracking-wider block mb-0.5">Gerçek Getiri Oranı (TTM)</span>
+                    {(() => {
+                      const netPnlWithDiv = (summary.totalValue - summary.totalCost) + summary.totalDiv;
+                      const roi = summary.totalCost > 0 ? (netPnlWithDiv / summary.totalCost) * 100 : 0;
+                      return (
+                        <span className={cn("font-extrabold tabular-nums", roi >= 0 ? "text-emerald-400" : "text-red-400")}>
+                          {isPrivate ? "••••••" : `%${roi.toFixed(2)}`}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Günlük en çok yükselen / düşen hisseler (Tıklanabilir Linkler) */}
         {dayStocks.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-900 w-full justify-center text-[10px] font-bold">
-            {topGainer && topGainer.dailyChangePct > 0 && (
-              <div className="flex items-center gap-1.5 bg-emerald-500/5 border border-emerald-500/10 px-2.5 py-1 rounded-xl text-emerald-400">
-                <span>🚀 En Çok Yükselen:</span>
-                <span className="font-black">{topGainer.ticker}</span>
-                <span className="tabular-nums">+{topGainer.dailyChangePct.toFixed(2)}%</span>
-              </div>
-            )}
-            {topLoser && topLoser.dailyChangePct < 0 && (
-              <div className="flex items-center gap-1.5 bg-red-500/5 border border-red-500/10 px-2.5 py-1 rounded-xl text-red-400">
-                <span>📉 En Çok Düşen:</span>
-                <span className="font-black">{topLoser.ticker}</span>
-                <span className="tabular-nums">{topLoser.dailyChangePct.toFixed(2)}%</span>
-              </div>
-            )}
+          <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-900/60 w-full justify-center text-[10px] font-bold z-10">
+            {topGainer && topGainer.dailyChangePct > 0 && (() => {
+              const stockItem = stockStats.find(s => s.ticker === topGainer.ticker);
+              return (
+                <button
+                  onClick={() => stockItem && setViewingStockDetails(stockItem.id)}
+                  className="flex items-center gap-1.5 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/10 hover:border-emerald-500/20 px-2.5 py-1.5 rounded-xl text-emerald-400 transition-all cursor-pointer group/badge active:scale-95"
+                  title={`${topGainer.ticker} Detayını Gör`}
+                >
+                  <span className="group-hover/badge:scale-110 transition-transform">🚀</span>
+                  <span>En Çok Yükselen:</span>
+                  <span className="font-black underline decoration-dotted decoration-emerald-500/40 group-hover/badge:text-white transition-colors">{topGainer.ticker}</span>
+                  <span className="tabular-nums">+{topGainer.dailyChangePct.toFixed(2)}%</span>
+                </button>
+              );
+            })()}
+            {topLoser && topLoser.dailyChangePct < 0 && (() => {
+              const stockItem = stockStats.find(s => s.ticker === topLoser.ticker);
+              return (
+                <button
+                  onClick={() => stockItem && setViewingStockDetails(stockItem.id)}
+                  className="flex items-center gap-1.5 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 px-2.5 py-1.5 rounded-xl text-red-400 transition-all cursor-pointer group/badge active:scale-95"
+                  title={`${topLoser.ticker} Detayını Gör`}
+                >
+                  <span className="group-hover/badge:scale-110 transition-transform">📉</span>
+                  <span>En Çok Düşen:</span>
+                  <span className="font-black underline decoration-dotted decoration-red-500/40 group-hover/badge:text-white transition-colors">{topLoser.ticker}</span>
+                  <span className="tabular-nums">{topLoser.dailyChangePct.toFixed(2)}%</span>
+                </button>
+              );
+            })()}
           </div>
         )}
       </div>
