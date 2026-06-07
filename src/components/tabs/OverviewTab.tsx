@@ -69,6 +69,23 @@ export default function OverviewTab({
   const trailingDivs     = dividends.filter(d => new Date(d.date) >= twelveMonthsAgo);
   const trailingAnnualDiv = trailingDivs.reduce((a, d) => a + d.net, 0);
 
+  const dayStocks = stockStats.filter(s => s.dailyChangePct != null && s.qty > 0);
+  const topGainer = dayStocks.length > 0
+    ? dayStocks.reduce((max, s) => s.dailyChangePct > max.dailyChangePct ? s : max, dayStocks[0])
+    : null;
+  const topLoser = dayStocks.length > 0
+    ? dayStocks.reduce((min, s) => s.dailyChangePct < min.dailyChangePct ? s : min, dayStocks[0])
+    : null;
+
+  const milestones = [
+    { id: '1', label: 'Bebek Adımları', desc: '₺10,000 Portföy', achieved: summary.totalValue >= 10000, icon: '🌱' },
+    { id: '2', label: 'Çekirdek Portföy', desc: '₺100,000 Portföy', achieved: summary.totalValue >= 100000, icon: '🍀' },
+    { id: '3', label: 'Yarı Yol', desc: '₺250,000 Portföy', achieved: summary.totalValue >= 250000, icon: '🧗' },
+    { id: '4', label: 'Temettü Çırağı', desc: '₺5,000 Yıllık Temettü', achieved: trailingAnnualDiv >= 5000, icon: '🥉' },
+    { id: '5', label: 'Temettü Kalfası', desc: '₺15,000 Yıllık Temettü', achieved: trailingAnnualDiv >= 15000, icon: '🥈' },
+    { id: '6', label: 'Pasif Maaş', desc: '₺50,000 Yıllık Temettü', achieved: trailingAnnualDiv >= 50000, icon: '🏆' },
+  ];
+
   const portfolioProgress = targetPortfolioVal > 0 ? (summary.totalValue / targetPortfolioVal) * 100 : 0;
   const dividendProgress = targetAnnualDiv > 0 ? (trailingAnnualDiv / targetAnnualDiv) * 100 : 0;
 
@@ -171,6 +188,26 @@ export default function OverviewTab({
           <div className="flex items-center gap-1.5 mt-4 text-[10px] text-slate-500 font-medium">
             <Clock size={11} />
             Son güncelleme: {lastUpdated.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        )}
+
+        {/* Günlük en çok yükselen / düşen hisseler */}
+        {dayStocks.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-900 w-full justify-center text-[10px] font-bold">
+            {topGainer && topGainer.dailyChangePct > 0 && (
+              <div className="flex items-center gap-1.5 bg-emerald-500/5 border border-emerald-500/10 px-2.5 py-1 rounded-xl text-emerald-400">
+                <span>🚀 En Çok Yükselen:</span>
+                <span className="font-black">{topGainer.ticker}</span>
+                <span className="tabular-nums">+{topGainer.dailyChangePct.toFixed(2)}%</span>
+              </div>
+            )}
+            {topLoser && topLoser.dailyChangePct < 0 && (
+              <div className="flex items-center gap-1.5 bg-red-500/5 border border-red-500/10 px-2.5 py-1 rounded-xl text-red-400">
+                <span>📉 En Çok Düşen:</span>
+                <span className="font-black">{topLoser.ticker}</span>
+                <span className="tabular-nums">{topLoser.dailyChangePct.toFixed(2)}%</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -313,6 +350,31 @@ export default function OverviewTab({
                 <div className="text-[10px] text-slate-400 font-semibold leading-none">
                   Hedefin %{dividendProgress.toFixed(1)} kısmına ulaşıldı.
                 </div>
+              </div>
+            </div>
+
+            {/* Kilometre Taşı Rozetleri */}
+            <div className="md:col-span-2 border-t border-slate-900/60 pt-5 mt-2">
+              <span className="text-[9px] text-slate-500 font-black uppercase tracking-wider block mb-3">Kazanılan Rozetler & Kilometre Taşları</span>
+              <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-1">
+                {milestones.map(m => (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 rounded-xl border shrink-0 transition-all text-xs font-semibold select-none",
+                      m.achieved
+                        ? "bg-cyan-500/5 text-cyan-400 border-cyan-500/20 shadow-[0_0_8px_rgba(6,182,212,0.05)]"
+                        : "bg-slate-950/20 text-slate-600 border-slate-900/65 opacity-60"
+                    )}
+                    title={m.desc}
+                  >
+                    <span className="text-sm">{m.icon}</span>
+                    <div className="text-left leading-none">
+                      <div className="text-[9px] font-black uppercase tracking-wide">{m.label}</div>
+                      <div className="text-[8px] text-slate-550 mt-0.5">{m.desc}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
