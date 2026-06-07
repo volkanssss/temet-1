@@ -39,6 +39,48 @@ function exportPortfolioCSV(stockStats: StockStat[]) {
   URL.revokeObjectURL(url);
 }
 
+const OverviewCustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const value = payload.find((p: any) => p.dataKey === 'Portföy Değeri')?.value || 0;
+    const cost = payload.find((p: any) => p.dataKey === 'Net Maliyet')?.value || 0;
+    const pnl = value - cost;
+    const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
+    const isProfit = pnl >= 0;
+
+    return (
+      <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800/80 p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] min-w-[200px] text-xs">
+        <p className="text-slate-400 font-extrabold mb-2 text-[10px] uppercase tracking-wider">{label}</p>
+        <div className="space-y-2.5">
+          <div className="flex justify-between items-center gap-4">
+            <span className="flex items-center gap-1.5 text-slate-450 font-medium">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.4)]" />
+              Portföy Değeri
+            </span>
+            <span className="font-extrabold text-slate-100 tabular-nums">{formatCurrency(value)}</span>
+          </div>
+          <div className="flex justify-between items-center gap-4">
+            <span className="flex items-center gap-1.5 text-slate-450 font-medium">
+              <span className="w-2 h-2 rounded-full bg-slate-500" />
+              Net Maliyet
+            </span>
+            <span className="font-extrabold text-slate-300 tabular-nums">{formatCurrency(cost)}</span>
+          </div>
+          <div className="pt-2 border-t border-slate-900 flex justify-between items-center gap-4">
+            <span className="text-slate-400 font-bold">Kâr / Zarar</span>
+            <span className={cn(
+              "font-black tabular-nums flex items-center gap-1",
+              isProfit ? "text-emerald-450" : "text-red-400"
+            )}>
+              {isProfit ? '▲' : '▼'} {isProfit ? '+' : ''}{formatCurrency(pnl)} ({pnlPct.toFixed(2)}%)
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function OverviewTab({
   summary, stockStats, purchases, dividends, history, lastUpdated, searchQuery = '', setViewingStockDetails,
 }: OverviewTabProps) {
@@ -418,8 +460,7 @@ export default function OverviewTab({
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} tickFormatter={v => '₺' + (v / 1000).toFixed(0) + 'k'} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', fontSize: '12px', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)' }}
-                  formatter={(v: number) => [formatCurrency(v), '']}
+                  content={<OverviewCustomTooltip />}
                   cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }}
                 />
                 <Area type="monotone" dataKey="Net Maliyet"    stroke="#64748b" strokeWidth={1.5} fillOpacity={1} fill="url(#colorCost)" />

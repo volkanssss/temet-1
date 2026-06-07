@@ -19,12 +19,70 @@ type AnalyticsTabProps = {
   summary: any;
 };
 
+const AnalyticsCustomTooltip = ({ active, payload, type }: any) => {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload;
+    const value = payload[0].value || 0;
+    const isDividend = type === 'dividend';
+
+    return (
+      <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800/80 p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] min-w-[170px] text-xs">
+        <p className="text-slate-400 font-extrabold mb-2 text-[10px] uppercase tracking-wider">
+          {item.tooltipLabel || item.name}
+        </p>
+        <div className="flex justify-between items-center gap-4">
+          <span className="flex items-center gap-1.5 text-slate-400 font-medium">
+            <span className={cn(
+              "w-2 h-2 rounded-full",
+              isDividend ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]" : "bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.4)]"
+            )} />
+            {isDividend ? 'Net Temettü' : 'Yatırım Miktarı'}
+          </span>
+          <span className="font-extrabold text-slate-100 tabular-nums">{formatCurrency(value)}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+const TreemapCustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    if (!data) return null;
+    return (
+      <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800/80 p-4 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] min-w-[185px] text-xs">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="font-extrabold text-slate-100 text-sm">{data.name}</span>
+          <span className="text-[10px] text-slate-400 font-semibold bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded-md">
+            {data.sector}
+          </span>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-slate-400 font-medium">Değer</span>
+            <span className="font-extrabold text-slate-200 tabular-nums">{formatCurrency(data.size)}</span>
+          </div>
+          <div className="flex justify-between items-center gap-4">
+            <span className="text-slate-400 font-medium">Portföy Oranı</span>
+            <span className="font-extrabold text-cyan-400 tabular-nums">%{data.weight.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function AnalyticsTab({ stockStats, dividends, purchases, sales, summary }: AnalyticsTabProps) {
   // Grafik tipi seçimi (Donut / Treemap)
   const [chartType, setChartType] = useState<'donut' | 'treemap'>('donut');
   
   // Tıklanan hisse bilgisi (Donut merkezinde detay göstermek için)
   const [activeStockIndex, setActiveStockIndex] = useState<number | null>(null);
+
+  // Aylık Finansal Seyir Grafiği sekme seçimi ('dividend' | 'investment')
+  const [financialChartTab, setFinancialChartTab] = useState<'dividend' | 'investment'>('dividend');
 
   // ─── Emeklilik Hesaplama State'leri ──────────────────────────────────────
   const [monthlySavings, setMonthlySavings] = useState(5000);   // Aylık ek tasarruf
@@ -47,7 +105,13 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
       acc[m] = (acc[m] || 0) + d.net;
       return acc;
     }, {} as Record<string, number>)
-  ).sort().slice(-12).map(([name, net]) => ({ name: name.slice(5), net }));
+  ).sort().slice(-12).map(([dateStr, net]) => {
+    const [year, month] = dateStr.split('-');
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    const label = date.toLocaleString('tr-TR', { month: 'short' }) + " '" + year.slice(2);
+    const tooltipLabel = date.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+    return { name: label, tooltipLabel, net };
+  });
 
   // Aylık yatırım
   const monthlyInvest = Object.entries(
@@ -56,7 +120,13 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
       acc[m] = (acc[m] || 0) + p.qty * p.price;
       return acc;
     }, {} as Record<string, number>)
-  ).sort().slice(-12).map(([name, val]) => ({ name: name.slice(5), val }));
+  ).sort().slice(-12).map(([dateStr, val]) => {
+    const [year, month] = dateStr.split('-');
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    const label = date.toLocaleString('tr-TR', { month: 'short' }) + " '" + year.slice(2);
+    const tooltipLabel = date.toLocaleString('tr-TR', { month: 'long', year: 'numeric' });
+    return { name: label, tooltipLabel, val };
+  });
 
   // Hisse sıralamaları
   const topPerformers = [...stockStats].sort((a, b) => b.profitLossPct - a.profitLossPct);
@@ -89,8 +159,10 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
       size: s.currentValue,
       color: COLORS[i % COLORS.length],
       formattedVal: formatCurrency(s.currentValue),
+      sector: s.sector,
+      weight: totalVal > 0 ? (s.currentValue / totalVal) * 100 : 0,
     }));
-  }, [stockStats]);
+  }, [stockStats, totalVal]);
 
   // Donut üzerinde aktif gösterilen hisse
   const donutActiveStock = useMemo(() => {
@@ -404,7 +476,9 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                 aspectRatio={4 / 3}
                 stroke="#0f172a"
                 content={<CustomizedTreemapContent />}
-              />
+              >
+                <Tooltip content={<TreemapCustomTooltip />} />
+              </ReTreemap>
             </ResponsiveContainer>
           )}
         </div>
@@ -733,46 +807,85 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
         </div>
       )}
 
-      {/* ─── Aylık Temettü Bar Chart ─── */}
+      {/* ─── Aylık Finansal Seyir (Sekmeli Birleşik Kart) ─── */}
       <div className="premium-card p-6 shadow-md border border-slate-800/40">
-        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-6">Aylık Temettü Seyri (Son 12 Ay)</h3>
-        <div className="h-[220px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlyDivs}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" strokeOpacity={0.5} />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} tickFormatter={v => '₺' + (v / 1000).toFixed(0) + 'k'} />
-              <Tooltip
-                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', fontSize: '12px' }}
-                cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }}
-                formatter={(v: number) => [formatCurrency(v), '']}
-              />
-              <Bar dataKey="net" fill="#10b981" radius={[6, 6, 0, 0]} name="Net Temettü" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* ─── Aylık Yatırım Line Chart ─── */}
-      {monthlyInvest.length > 1 && (
-        <div className="premium-card p-6 shadow-md border border-slate-800/40">
-          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-6">Aylık Yatırım Seyri (Son 12 Ay)</h3>
-          <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthlyInvest}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" strokeOpacity={0.5} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} tickFormatter={v => '₺' + (v / 1000).toFixed(0) + 'k'} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '16px', fontSize: '12px' }}
-                  formatter={(v: number) => [formatCurrency(v), '']}
-                />
-                <Line type="monotone" dataKey="val" stroke="#06b6d4" strokeWidth={2.5} dot={{ r: 5, fill: '#06b6d4' }} name="Yatırım" />
-              </LineChart>
-            </ResponsiveContainer>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div>
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Aylık Finansal Seyir</h3>
+            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Son 12 aydaki finansal hareketlerinizin özeti</p>
+          </div>
+          <div className="flex bg-slate-950/80 border border-slate-900 p-0.5 rounded-xl text-[10px] font-bold self-stretch sm:self-auto justify-center">
+            <button
+              onClick={() => setFinancialChartTab('dividend')}
+              className={cn(
+                'px-4 py-1.5 rounded-lg transition-all active:scale-95 cursor-pointer',
+                financialChartTab === 'dividend' ? 'bg-emerald-500 text-slate-950 shadow shadow-emerald-500/20' : 'text-slate-500 hover:text-slate-350'
+              )}
+            >
+              Aylık Temettü
+            </button>
+            <button
+              onClick={() => setFinancialChartTab('investment')}
+              className={cn(
+                'px-4 py-1.5 rounded-lg transition-all active:scale-95 cursor-pointer',
+                financialChartTab === 'investment' ? 'bg-cyan-500 text-slate-950 shadow shadow-cyan-500/20' : 'text-slate-500 hover:text-slate-350'
+              )}
+            >
+              Aylık Yatırım
+            </button>
           </div>
         </div>
-      )}
+
+        <div className="h-[230px] w-full">
+          <AnimatePresence mode="wait">
+            {financialChartTab === 'dividend' ? (
+              <motion.div
+                key="dividend-chart"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.15 }}
+                className="h-full w-full"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyDivs} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" strokeOpacity={0.3} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} tickFormatter={v => '₺' + (v / 1000).toFixed(0) + 'k'} />
+                    <Tooltip content={<AnalyticsCustomTooltip type="dividend" />} cursor={{ fill: 'rgba(255, 255, 255, 0.03)' }} />
+                    <Bar dataKey="net" fill="#10b981" radius={[6, 6, 0, 0]} name="Net Temettü" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="investment-chart"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.15 }}
+                className="h-full w-full"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  {monthlyInvest.length > 0 ? (
+                    <LineChart data={monthlyInvest} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" strokeOpacity={0.3} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} tickFormatter={v => '₺' + (v / 1000).toFixed(0) + 'k'} />
+                      <Tooltip content={<AnalyticsCustomTooltip type="investment" />} />
+                      <Line type="monotone" dataKey="val" stroke="#06b6d4" strokeWidth={2.5} dot={{ r: 4, fill: '#06b6d4', stroke: '#0f172a', strokeWidth: 1 }} activeDot={{ r: 6, fill: '#06b6d4', stroke: '#fff', strokeWidth: 1.5 }} name="Yatırım" />
+                    </LineChart>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-slate-500 text-xs italic">
+                      Yatırım verisi bulunmuyor.
+                    </div>
+                  )}
+                </ResponsiveContainer>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
       {/* ─── En Çok Temettü Veren Hisseler ─── */}
       {topDivPayers.length > 0 && topDivPayers[0].totalDiv > 0 && (
