@@ -129,7 +129,8 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
 
   // ─── Treemap Özel Çizim Bileşeni ──────────────────────────────────────────
   const CustomizedTreemapContent = (props: any) => {
-    const { x, y, width, height, index, name, size } = props;
+    const { x, y, width, height, index, name, size, depth } = props;
+    if (depth !== 1) return null;
     if (width < 32 || height < 24) return null;
     return (
       <g>
@@ -144,7 +145,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
             strokeWidth: 1.5,
             strokeOpacity: 0.95,
           }}
-          rx={4}
+          rx={6}
         />
         <text
           x={x + width / 2}
@@ -152,6 +153,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
           textAnchor="middle"
           dominantBaseline="middle"
           fill="#ffffff"
+          stroke="none"
           className="font-extrabold text-[10px] md:text-[11px] select-none"
         >
           {name}
@@ -163,6 +165,7 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
             textAnchor="middle"
             dominantBaseline="middle"
             fill="rgba(255, 255, 255, 0.7)"
+            stroke="none"
             className="font-bold text-[8px] md:text-[9px] select-none"
           >
             {formatCurrency(size)}
@@ -504,6 +507,12 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
             {/* SVG Grafik Eğrisi */}
             <div className="h-32 bg-slate-950/40 border border-slate-900 rounded-2xl p-4 relative overflow-hidden flex items-end">
               <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-full">
+                <defs>
+                  <linearGradient id="simGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
                 {/* Hedef Çizgisi */}
                 {sim.targetVal > 0 && (
                   <line 
@@ -516,19 +525,24 @@ export default function AnalyticsTab({ stockStats, dividends, purchases, sales, 
                     strokeDasharray="1.5 1.5"
                   />
                 )}
-                {/* Büyüme Eğrisi */}
+                {/* Büyüme Alanı Shading */}
+                <path
+                  d={`M 0 30 L ${sim.points.map((p, i) => `${(i / 25) * 100} ${30 - (p.value / Math.max(...sim.points.map(pt => pt.value), sim.targetVal)) * 28}`).join(' L ')} L 100 30 Z`}
+                  fill="url(#simGrad)"
+                />
+                {/* Büyüme Eğrisi Hat */}
                 <path
                   d={`M ${sim.points.map((p, i) => `${(i / 25) * 100} ${30 - (p.value / Math.max(...sim.points.map(pt => pt.value), sim.targetVal)) * 28}`).join(' L ')}`}
                   fill="none"
                   stroke="#06b6d4"
-                  strokeWidth="1"
+                  strokeWidth="1.2"
                 />
                 {/* Kesişim Noktası */}
                 {sim.yearsToFreedom !== -1 && (
                   <circle 
                     cx={(sim.yearsToFreedom / 25) * 100} 
                     cy={30 - (sim.targetVal / Math.max(...sim.points.map(pt => pt.value), sim.targetVal)) * 28} 
-                    r="1.2" 
+                    r="1.5" 
                     fill="#10b981" 
                     className="animate-pulse"
                   />
